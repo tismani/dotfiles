@@ -1,6 +1,8 @@
 { pkgs, ... }: {
 
-  programs.zsh.enable = true;
+  imports = [
+    ./fish.nix
+  ];
 
   environment.variables = {
     EDITOR = "nvim";

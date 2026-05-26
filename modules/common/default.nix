@@ -26,13 +26,14 @@
     unzip
     tree
     uv
-    kitty
-    yt-dlp
+    ffmpeg
+    zoxide
 
     nodejs_24
     postman
     kubectl
     minikube
+    fira-code-symbols
 
     # requires nixpkgs.config.allowUnfree = true;
     vscode

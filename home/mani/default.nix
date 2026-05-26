@@ -3,6 +3,7 @@
   home.username = "mani";
   home.homeDirectory = lib.mkDefault "/home/mani"; # override per-host
   home.stateVersion = "24.11";
+  imports = [./programs];
 
   home.packages = with pkgs; [
     neovim
@@ -26,10 +27,14 @@
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
     shellAliases = {
-      ls = "eza --icons";
+      ls = "eza -l -g --icons";
       cat = "bat";
       rebuild = "sudo darwin-rebuild switch --flake ~/dotfiles#nightfury";
+      cd = "z";
     };
+    initContent = ''
+      eval "$(zoxide init zsh)"
+    '';
   };
 
   programs.home-manager.enable = true;

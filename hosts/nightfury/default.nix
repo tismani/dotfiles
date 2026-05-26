@@ -132,6 +132,10 @@
     };
     global.autoUpdate = true;
 
+    brews = [
+          "mole"
+        ];
+
     casks = [
      	"firefox"
      	"wezterm"
@@ -141,6 +145,7 @@
       "protonvpn"
       "warp"
       "vlc"
+      "claude"
       "bettertouchtool"
       "docker-desktop" # virtualisation.docker.enable is not available on nix-darwin
     ];
