@@ -28,9 +28,11 @@
     shellAliases = {
       ls = "eza -l -g --icons";
       cat = "bat";
-      darwin-rebuild = "sudo darwin-rebuild switch --flake ~/dotfiles#nightfury";
-      rebuild = "sudo nixos-rebuild switch --flake ~/dotfiles/.#halo";
       cd = "z";
+      rebuild =
+      if pkgs.stdenv.isDarwin
+      then "sudo darwin-rebuild switch --flake ~/dotfiles#nightfury"
+      else "sudo nixos-rebuild switch --flake ~/dotfiles/.#halo";
     };
     initContent = ''
       eval "$(zoxide init zsh)"
