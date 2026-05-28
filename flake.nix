@@ -15,7 +15,7 @@
     };
   };
 
-  outputs = inputs@{ self, nixpkgs, nix-darwin, home-manager, ... }: {
+  outputs = inputs@{ self, nixpkgs, nixos-hardware, nix-darwin, home-manager, ... }: {
 
     darwinConfigurations."nightfury" = nix-darwin.lib.darwinSystem {
       system = "aarch64-darwin";

@@ -4,5 +4,6 @@
     ./kitty.nix
     ./yt-dlp.nix
     ./starship.nix
+    ./tmux.nix
   ];
 }

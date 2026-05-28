@@ -7,7 +7,6 @@
 
   home.packages = with pkgs; [
     neovim
-    tmux
     lazygit
     nodejs_22
     python3
@@ -29,7 +28,8 @@
     shellAliases = {
       ls = "eza -l -g --icons";
       cat = "bat";
-      rebuild = "sudo darwin-rebuild switch --flake ~/dotfiles#nightfury";
+      darwin-rebuild = "sudo darwin-rebuild switch --flake ~/dotfiles#nightfury";
+      rebuild = "sudo nixos-rebuild switch --flake ~/dotfiles/.#halo";
       cd = "z";
     };
     initContent = ''
