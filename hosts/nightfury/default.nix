@@ -29,6 +29,22 @@
     };
   };
 
+  system.keyboard = {
+    enableKeyMapping = true;
+    userKeyMapping = [
+      {
+        # Caps Lock → Left Control
+        HIDKeyboardModifierMappingSrc = 30064771129;  # 0x700000039
+        HIDKeyboardModifierMappingDst = 30064771296;  # 0x7000000E0
+      }
+      {
+        # Left Control → Caps Lock
+        HIDKeyboardModifierMappingSrc = 30064771296;  # 0x7000000E0
+        HIDKeyboardModifierMappingDst = 30064771129;  # 0x700000039
+      }
+    ];
+  };
+
   system.defaults.CustomUserPreferences = {
     "com.apple.finder" = {
       ShowExternalHardDrivesOnDesktop = true;
@@ -56,21 +72,8 @@
       # Completely disable Caps Lock functionality
       AppleFnUsageType = 1; # Enable Fn key functionality
       AppleKeyboardUIMode = 3;
-      # Disable Caps Lock toggle entirely
-      # AppleSymbolicHotKeys = {
-      #   "60" = {
-      #     enabled = false; # Disable Caps Lock toggle hotkey
-      #   };
-      # };
-      # Override modifier key behavior to prevent Caps Lock from functioning
-      # AppleModifierKeyRemapping = {
-      #   "1452-630-0" = {
-      #     # Map Caps Lock (key code 57/0x39) to nothing (disable it)
-      #     HIDKeyboardModifierMappingSrc = 30064771129; # Caps Lock
-      #     HIDKeyboardModifierMappingDst = 30064771299; # No Action
-      #   };
-      # };
     };
+
     "com.apple.dock" = {
       autohide = false;
       launchanim = false;
@@ -132,12 +135,9 @@
     };
     global.autoUpdate = true;
 
-    brews = [
-          "mole"
-        ];
-
     casks = [
      	"firefox"
+      "google-chrome"
      	"wezterm"
      	"raycast"
      	"octarine"
@@ -147,12 +147,14 @@
       "vlc"
       "claude"
       "bettertouchtool"
+      "coconutbattery"
+      "naps2"
+      "voiceink"
       "docker-desktop" # virtualisation.docker.enable is not available on nix-darwin
     ];
 
     masApps = {
       "Amphetamine" = 937984704;
-      # "AutoMounter" = 1160435653;
       "Bitwarden" = 1352778147;
       "rCmd" = 1596283165;
       "Tailscale" = 1475387142;
@@ -160,6 +162,8 @@
       "Snippety" = 1530751461;
       "FE File Explorer Pro" = 1466198841;
       "WhatsApp Messenger" = 310633997;
+      "uBlock Origin Lite" = 6745342698;
+      "Infuse" = 1136220934;
     };
   };
 
