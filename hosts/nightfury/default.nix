@@ -150,6 +150,7 @@
       "coconutbattery"
       "naps2"
       "voiceink"
+      "TheBoredTeam/boring-notch/boring-notch"
       "docker-desktop" # virtualisation.docker.enable is not available on nix-darwin
     ];
 
