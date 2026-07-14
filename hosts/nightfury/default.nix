@@ -4,8 +4,11 @@
   nixpkgs.hostPlatform = "aarch64-darwin";
   system.primaryUser = "mani";
 
-  # TouchID for sudo authentication
-  security.pam.services.sudo_local.touchIdAuth = true;
+  # TouchID for sudo authentication (reattach makes it work inside tmux)
+  security.pam.services.sudo_local = {
+    touchIdAuth = true;
+    reattach = true;
+  };
 
   system.defaults = {
     dock = {
@@ -120,6 +123,7 @@
 
   environment.systemPackages = with pkgs; [
     mas
+    nixos-rebuild # deploy halo remotely
   ];
 
   homebrew = {

@@ -21,6 +21,7 @@
         home-manager = {
           useGlobalPkgs = true;
           useUserPackages = true;
+          backupFileExtension = "backup";
           users.mani = import ./home/mani;
         };
       };

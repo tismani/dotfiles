@@ -33,10 +33,17 @@
       if pkgs.stdenv.isDarwin
       then "sudo darwin-rebuild switch --flake ~/dotfiles"
       else "sudo nixos-rebuild switch --flake ~/dotfiles";
+    } // lib.optionalAttrs pkgs.stdenv.isDarwin {
+      rebuild-halo = "nixos-rebuild switch --flake ~/dotfiles#halo --target-host mani@halo --build-host mani@halo --use-remote-sudo";
     };
     initContent = ''
       eval "$(zoxide init zsh)"
     '';
+  };
+
+  programs.direnv = {
+    enable = true;
+    nix-direnv.enable = true;
   };
 
   programs.home-manager.enable = true;
