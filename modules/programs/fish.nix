@@ -17,8 +17,8 @@
       cd = "z";
       rebuild =
       if pkgs.stdenv.isDarwin
-      then "sudo darwin-rebuild switch --flake ~/dotfiles#nightfury"
-      else "sudo nixos-rebuild switch --flake ~/dotfiles/.";
+      then "sudo darwin-rebuild switch --flake ~/dotfiles"
+      else "sudo nixos-rebuild switch --flake ~/dotfiles";
     };
     interactiveShellInit = ''
       set fish_greeting # Disable greeting

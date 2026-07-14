@@ -13,10 +13,8 @@
         embed-thumbnail = true;
         sponsorblock-mark = "sponsor";
         sub-langs = "all";
+        ffmpeg-location = "${pkgs.ffmpeg}/bin/ffmpeg";
       };
-      extraConfig = ''
-        --ffmpeg-location /run/current-system/sw/bin/ffmpeg
-      '';
     };
   };
 }

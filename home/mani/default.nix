@@ -8,7 +8,6 @@
   home.packages = with pkgs; [
     neovim
     lazygit
-    nodejs_22
     python3
   ];
 
@@ -29,10 +28,11 @@
       ls = "eza -l -g --icons";
       cat = "bat";
       cd = "z";
+      # no #hostname attribute needed: *-rebuild defaults to the current hostname
       rebuild =
       if pkgs.stdenv.isDarwin
-      then "sudo darwin-rebuild switch --flake ~/dotfiles#nightfury"
-      else "sudo nixos-rebuild switch --flake ~/dotfiles/.#halo";
+      then "sudo darwin-rebuild switch --flake ~/dotfiles"
+      else "sudo nixos-rebuild switch --flake ~/dotfiles";
     };
     initContent = ''
       eval "$(zoxide init zsh)"

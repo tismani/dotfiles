@@ -8,8 +8,16 @@
   security.pam.services.sudo_local.touchIdAuth = true;
 
   system.defaults = {
-    dock.autohide = true;
-    dock.show-recents = false;
+    dock = {
+      autohide = true;
+      show-recents = false;
+      launchanim = false;
+      show-process-indicators = true;
+      orientation = "bottom";
+      tilesize = 36;
+      minimize-to-application = true;
+      mineffect = "scale";
+    };
     finder.AppleShowAllExtensions = true;
     finder.FXPreferredViewStyle = "clmv"; # column view
     trackpad.Clicking = true;
@@ -56,7 +64,7 @@
       FXDefaultSearchScope = "SCcf";
       DisableAllAnimations = true;
       NewWindowTarget = "PfDe";
-      NewWindowTargetPath = "file://$\{HOME\}/Desktop/";
+      NewWindowTargetPath = "file:///Users/mani/Desktop/";
       AppleShowAllExtensions = true;
       FXEnableExtensionChangeWarning = false;
       ShowStatusBar = true;
@@ -74,18 +82,6 @@
       AppleKeyboardUIMode = 3;
     };
 
-    "com.apple.dock" = {
-      autohide = false;
-      launchanim = false;
-      static-only = false;
-      show-recents = false;
-      show-process-indicators = true;
-      orientation = "bottom";
-      tilesize = 36;
-      minimize-to-application = true;
-      mineffect = "scale";
-      enable-window-tool = false;
-    };
     "com.apple.ActivityMonitor" = {
       OpenMainWindow = true;
       IconType = 5;
@@ -150,7 +146,8 @@
       "coconutbattery"
       "naps2"
       "voiceink"
-      "TheBoredTeam/boring-notch/boring-notch"
+      "wifiman"
+      "synology-drive"
       "docker-desktop" # virtualisation.docker.enable is not available on nix-darwin
     ];
 
@@ -174,6 +171,5 @@
   };
   home-manager.users.mani.home.homeDirectory = lib.mkForce "/Users/mani";
 
-  #services.nix-daemon.enable = true;
   system.stateVersion = 5;
 }

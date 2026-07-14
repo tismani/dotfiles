@@ -4,9 +4,12 @@
 
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
-    auto-optimise-store = true;
     warn-dirty = false;
   };
+
+  # scheduled optimisation instead of auto-optimise-store,
+  # which has a history of store corruption on macOS
+  nix.optimise.automatic = true;
 
   nix.gc = {
     automatic = true;
@@ -28,6 +31,7 @@
     uv
     ffmpeg
     zoxide
+    anki
 
     nodejs_24
     postman
@@ -36,8 +40,11 @@
     fira-code-symbols
 
     # requires nixpkgs.config.allowUnfree = true;
-    vscode
-    vscode-extensions.ms-vscode-remote.remote-ssh
+    (vscode-with-extensions.override {
+      vscodeExtensions = with vscode-extensions; [
+        ms-vscode-remote.remote-ssh
+      ];
+    })
   ];
 
   fonts.packages = with pkgs; [

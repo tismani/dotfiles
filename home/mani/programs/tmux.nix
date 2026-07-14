@@ -1,17 +1,5 @@
 { pkgs, ... }:
 
-let
-  tmux-power = pkgs.tmuxPlugins.mkTmuxPlugin {
-    pluginName = "tmux-power";
-    version = "unstable-2024-01-01";
-    src = pkgs.fetchFromGitHub {
-      owner = "wfxr";
-      repo = "tmux-power";
-      rev = "master";
-      sha256 = "sha256-NRJcny3hCyqjp8SuzyC3Zc33rJqpUzs6rbWFgO8yb7c=";  # Nix will tell you the correct hash on first build
-    };
-  };
-in
 {
   programs.tmux = {
     enable = true;
@@ -39,7 +27,7 @@ in
 
           # Status bar modules
           set -g @catppuccin_status_modules_right 'directory session date_time'
-          set -g @catppuccin_status_modules_left `""
+          set -g @catppuccin_status_modules_left ""
           set -g @catppuccin_status_left_separator '█'
           set -g @catppuccin_status_right_separator '█'
 
@@ -81,9 +69,6 @@ in
       # Split panes in current path
       bind | split-window -h -c "#{pane_current_path}"
       bind - split-window -v -c "#{pane_current_path}"
-
-      # Reload config
-      bind r source-file ~/.tmux.conf
 
       # Resize panes
       bind j resize-pane -D 5
