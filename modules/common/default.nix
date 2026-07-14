@@ -31,7 +31,7 @@
     uv
     ffmpeg
     zoxide
-    anki
+    anki-bin # pkgs.anki compiles qtspeech from source, broken on aarch64-darwin
 
     nodejs_24
     postman
