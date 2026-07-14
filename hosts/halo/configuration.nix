@@ -9,6 +9,7 @@
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./llm.nix
+      ./flatpak.nix
     ];
 
   # Bootloader.
