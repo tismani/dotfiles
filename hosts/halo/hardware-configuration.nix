@@ -13,19 +13,21 @@
   boot.kernelModules = [ "kvm-amd" ];
   boot.extraModulePackages = [ ];
 
+  # labels instead of UUIDs so the config survives reinstalls;
+  # label the partitions the same way on a fresh install
   fileSystems."/" =
-    { device = "/dev/disk/by-uuid/a0ef92fa-eb69-4951-907a-1179d97da372";
+    { device = "/dev/disk/by-label/nixos";
       fsType = "ext4";
     };
 
   fileSystems."/boot" =
-    { device = "/dev/disk/by-uuid/0454-007A";
+    { device = "/dev/disk/by-label/boot";
       fsType = "vfat";
       options = [ "fmask=0077" "dmask=0077" ];
     };
 
   swapDevices =
-    [ { device = "/dev/disk/by-uuid/5d18c65a-91ea-4de1-a581-af3fd904b6b9"; }
+    [ { device = "/dev/disk/by-label/swap"; }
     ];
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
