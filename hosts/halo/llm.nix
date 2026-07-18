@@ -24,8 +24,53 @@
     package = pkgs.ollama-vulkan;
   };
 
+  # Lemonade Server (AMD's local LLM server, ROCm/NPU-accelerated) via
+  # container, since it isn't packaged in nixpkgs.
+  # https://lemonade-server.ai/docs/guide/install/docker/
+  virtualisation.podman.enable = true;
+
+  # Pre-seed the ROCm backend config that lemonade-server reads on startup.
+  system.activationScripts.lemonadeConfig = ''
+    mkdir -p /var/lib/lemonade/{cache,llama,recipe}
+    cat > /var/lib/lemonade/recipe/config.json <<'EOF'
+    {
+      "llamacpp": {
+        "backend": "rocm"
+      }
+    }
+    EOF
+  '';
+
+  virtualisation.oci-containers = {
+    backend = "podman";
+    containers.lemonade-server = {
+      image = "ghcr.io/lemonade-sdk/lemonade-server:latest";
+      autoStart = true;
+      ports = [ "13305:13305" ];
+      volumes = [
+        "/var/lib/lemonade/cache:/opt/lemonade/.cache/huggingface"
+        "/var/lib/lemonade/llama:/opt/lemonade/llama"
+        "/var/lib/lemonade/recipe:/opt/lemonade/.cache/lemonade"
+      ];
+      extraOptions = [
+        "--device=/dev/kfd"
+        "--device=/dev/dri"
+      ];
+    };
+  };
+
+  services.open-webui = {
+    enable = true;
+    host = "0.0.0.0";
+    openFirewall = true;
+    environment = {
+      OPENAI_API_BASE_URL = "http://127.0.0.1:13305/api/v1";
+      OLLAMA_BASE_URL = "http://127.0.0.1:11434";
+    };
+  };
+
   # Open ports to make it accessible to the network
-  networking.firewall.allowedTCPPorts = [ 11434 1234 ];
+  networking.firewall.allowedTCPPorts = [ 11434 1234 13305 ];
 
   # Required system packages to load the Vulkan runtime
   environment.systemPackages = with pkgs; [
