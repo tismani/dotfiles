@@ -4,6 +4,11 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     nixos-hardware.url = "github:NixOS/nixos-hardware";
+
+    # AMD AI inference stack (Lemonade + ROCm/NPU backends) for Strix Halo.
+    # Intentionally NOT following nixpkgs: the upstream overrides re-hash
+    # against a different nixpkgs and every backend rebuilds from source.
+    nix-amd-ai.url = "github:noamsto/nix-amd-ai";
     nix-darwin = {
       url = "github:nix-darwin/nix-darwin/master";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -46,6 +51,7 @@
           ./hosts/halo/configuration.nix
           ./modules/common
           ./modules/programs
+          inputs.nix-amd-ai.nixosModules.default
           nixos-hardware.nixosModules.framework-desktop-amd-ai-max-300-series
           home-manager.nixosModules.home-manager
           homeManagerConfig

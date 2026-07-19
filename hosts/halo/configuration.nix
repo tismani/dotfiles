@@ -84,7 +84,8 @@
   users.users.mani = {
     isNormalUser = true;
     description = "mani";
-    extraGroups = [ "networkmanager" "wheel" ];
+    # video + render give the lemonade/NPU service user GPU device access.
+    extraGroups = [ "networkmanager" "wheel" "video" "render" ];
     packages = with pkgs; [
     #  thunderbird
     ];
