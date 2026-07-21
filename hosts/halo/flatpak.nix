@@ -3,8 +3,8 @@
 {
   services.flatpak.enable = true;
 
-  # NixOS doesn't manage flatpak remotes declaratively;
-  # add Flathub on boot so `flatpak install` just works
+  # NixOS doesn't manage flatpak remotes/apps declaratively;
+  # add Flathub and install apps on boot so it's reproducible via rebuild-halo
   systemd.services.flatpak-add-flathub = {
     wantedBy = [ "multi-user.target" ];
     after = [ "network-online.target" ];
@@ -16,6 +16,7 @@
     };
     script = ''
       flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+      flatpak install --system --noninteractive flathub com.bitwarden.desktop
     '';
   };
 

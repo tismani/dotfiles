@@ -5,5 +5,6 @@
     ./yt-dlp.nix
     ./starship.nix
     ./tmux.nix
+    ./ssh.nix
   ];
 }
