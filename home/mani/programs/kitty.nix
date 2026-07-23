@@ -35,5 +35,11 @@
 
     # Colours come from stylix (Dracula). Font/opacity above are explicit and
     # take precedence over stylix's defaults.
+
+    # Right-click pastes from clipboard (mouse_map isn't exposed as a HM
+    # option, so it goes in raw config).
+    extraConfig = ''
+      mouse_map right press ungrabbed paste_from_clipboard
+    '';
   };
 }
