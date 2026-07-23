@@ -6,5 +6,6 @@
     ./starship.nix
     ./tmux.nix
     ./ssh.nix
+    ./helix.nix
   ];
 }
