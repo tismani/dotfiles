@@ -10,6 +10,7 @@
       ./hardware-configuration.nix
       ./llm.nix
       ./flatpak.nix
+      ./desktop.nix
     ];
 
   # Bootloader.

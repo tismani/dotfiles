@@ -5,7 +5,7 @@
     enable = true;
 
     settings = {
-      theme = "catppuccin_mocha";
+      # theme is set by stylix (Dracula).
 
       editor = {
         line-number = "relative";
@@ -20,7 +20,11 @@
           select = "underline";
         };
 
-        whitespace.render = "all";
+        whitespace.render = {
+          space = "trailing";
+          tab = "all";
+          newline = "none";
+        };
         indent-guides.render = true;
         soft-wrap.enable = true;
 

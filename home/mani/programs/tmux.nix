@@ -12,34 +12,18 @@
     plugins = with pkgs.tmuxPlugins; [
       vim-tmux-navigator
       {
-        plugin = catppuccin;
+        plugin = dracula;
         extraConfig = ''
-          # Theme flavor: latte, frappe, macchiato, mocha
-          set -g @catppuccin_flavor 'mocha'
-
-          # Window styling
-          set -g @catppuccin_window_status_style 'rounded'
-          set -g @catppuccin_window_number_position 'right'
-          set -g @catppuccin_window_default_fill 'number'
-          set -g @catppuccin_window_default_text '#W'
-          set -g @catppuccin_window_current_fill 'number'
-          set -g @catppuccin_window_current_text '#W'
-
-          # Status bar modules
-          set -g @catppuccin_status_modules_right 'directory session date_time'
-          set -g @catppuccin_status_modules_left ""
-          set -g @catppuccin_status_left_separator '█'
-          set -g @catppuccin_status_right_separator '█'
-
-          # Directory
-          set -g @catppuccin_directory_text '#{pane_current_path}'
+          # Status bar modules (right side)
+          set -g @dracula-plugins "git cpu-usage ram-usage time"
+          set -g @dracula-show-powerline true
+          set -g @dracula-show-left-icon session
+          set -g @dracula-show-flags true
+          set -g @dracula-refresh-rate 5
 
           # Date/time
-          set -g @catppuccin_date_time_text '%a %d %b  %H:%M'
-
-          # Pane borders
-          set -g @catppuccin_pane_border_style 'fg=#{thm_surface0}'
-          set -g @catppuccin_pane_active_border_style 'fg=#{thm_lavender}'
+          set -g @dracula-military-time true
+          set -g @dracula-time-format "%a %d %b  %H:%M"
         '';
       }
       {
@@ -84,10 +68,10 @@
       bind-key -T copy-mode-vi 'v' send -X begin-selection
       bind-key -T copy-mode-vi 'y' send -X copy-selection
       unbind -T copy-mode-vi MouseDragEnd1Pane
-
-      # Transparent status bar background for a clean look
-      set -g status-bg default
-      set -g status-style bg=default
     '';
   };
+
+  # The Dracula tmux plugin owns the status bar; keep stylix from also theming
+  # tmux so the two don't fight over the status line.
+  stylix.targets.tmux.enable = false;
 }

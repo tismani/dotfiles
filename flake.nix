@@ -18,6 +18,13 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # System-wide theming (Dracula). Applies to NixOS, nix-darwin and, because
+    # home-manager is wired in as a system module, our home config too.
+    stylix = {
+      url = "github:nix-community/stylix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs@{ self, nixpkgs, nixos-hardware, nix-darwin, home-manager, ... }:
@@ -39,6 +46,7 @@
           ./hosts/nightfury
           ./modules/common
           ./modules/programs
+          inputs.stylix.darwinModules.stylix
           home-manager.darwinModules.home-manager
           homeManagerConfig
         ];
@@ -53,6 +61,7 @@
           ./modules/programs
           inputs.nix-amd-ai.nixosModules.default
           nixos-hardware.nixosModules.framework-desktop-amd-ai-max-300-series
+          inputs.stylix.nixosModules.stylix
           home-manager.nixosModules.home-manager
           homeManagerConfig
         ];

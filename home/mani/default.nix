@@ -3,7 +3,9 @@
   home.username = "mani";
   home.homeDirectory = lib.mkDefault "/home/mani"; # override per-host
   home.stateVersion = "24.11";
-  imports = [./programs];
+  # The Linux-only desktop (niri + noctalia) is imported per-host from
+  # hosts/halo/desktop.nix, so nightfury (darwin) never evaluates it.
+  imports = [ ./programs ];
 
   home.packages = with pkgs; [
     neovim

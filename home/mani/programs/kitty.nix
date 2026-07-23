@@ -4,10 +4,9 @@
   programs.kitty = {
     enable = true;
 
-    font = {
-      name = "FiraCode Nerd Font Mono";
-      size = 13.0;
-    };
+    # Font (FiraCode Nerd Font Mono @ 13) and background opacity are set by
+    # stylix — see modules/common/stylix.nix (fonts.sizes.terminal /
+    # opacity.terminal). Colours come from the stylix Dracula theme.
 
     keybindings = {
       "ctrl+c" = "copy_or_interrupt";
@@ -19,11 +18,10 @@
     settings = {
       cursor_shape = "beam";
       cursor_trail = 1;
-      cursor_trail_color = "#b4befe";
+      cursor_trail_color = "#bd93f9"; # Dracula purple
 
       window_margin_width = "21";
 
-      background_opacity = "0.9";
       background_blur = 1;
 
       copy_on_select = "yes";
@@ -35,7 +33,7 @@
       shell_integration = "enabled";
     };
 
-    # Catppuccin Mocha theme
-    themeFile = "Catppuccin-Mocha";
+    # Colours come from stylix (Dracula). Font/opacity above are explicit and
+    # take precedence over stylix's defaults.
   };
 }
