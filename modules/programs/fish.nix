@@ -20,7 +20,7 @@
       then "sudo darwin-rebuild switch --flake ~/dotfiles"
       else "sudo nixos-rebuild switch --flake ~/dotfiles";
     } // lib.optionalAttrs pkgs.stdenv.isDarwin {
-      rebuild-halo = "nixos-rebuild switch --flake ~/dotfiles#halo --target-host mani@halo --build-host mani@halo --use-remote-sudo --ask-elevate-password";
+      rebuild-halo = "nixos-rebuild switch --flake ~/dotfiles#halo --target-host mani@halo --build-host mani@halo --elevate=sudo --ask-elevate-password";
     };
     interactiveShellInit = ''
       set fish_greeting # Disable greeting

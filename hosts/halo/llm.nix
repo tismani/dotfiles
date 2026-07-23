@@ -46,6 +46,13 @@
       OPENAI_API_BASE_URL = "http://127.0.0.1:13305/api/v1";
       # Ollama has been removed in favour of lemonade.
       ENABLE_OLLAMA_API = "False";
+
+      # Kokoro TTS via lemonade's OpenAI-compatible audio/speech endpoint.
+      AUDIO_TTS_ENGINE = "openai";
+      AUDIO_TTS_OPENAI_API_BASE_URL = "http://127.0.0.1:13305/api/v1";
+      AUDIO_TTS_OPENAI_API_KEY = "lemonade"; # ignored by lemonade, must be non-empty
+      AUDIO_TTS_MODEL = "kokoro-v1";
+      AUDIO_TTS_VOICE = "af_bella";
     };
   };
 
