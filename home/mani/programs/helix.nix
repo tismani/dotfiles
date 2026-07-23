@@ -21,7 +21,7 @@
         };
 
         whitespace.render = {
-          space = "trailing";
+          space = "none";
           tab = "all";
           newline = "none";
         };
