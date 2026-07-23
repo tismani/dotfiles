@@ -9,14 +9,33 @@
 
   programs.ssh = {
     enable = true;
+
+    # Home-manager's implicit `Host *` defaults are being removed upstream;
+    # opt out and set the ones we want ourselves to silence the warning.
+    enableDefaultConfig = false;
+
     settings = {
-      # Bitwarden desktop app's SSH agent socket.
-      # nightfury: Bitwarden installed via Mac App Store (sandboxed container path).
-      # halo: Bitwarden installed via Flatpak.
-      "*".IdentityAgent =
-        if pkgs.stdenv.isDarwin
-        then "~/Library/Containers/com.bitwarden.desktop/Data/.bitwarden-ssh-agent.sock"
-        else "~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock";
+      "*" = {
+        # Bitwarden desktop app's SSH agent socket.
+        # nightfury: Bitwarden installed via Mac App Store (sandboxed container path).
+        # halo: Bitwarden installed via Flatpak.
+        IdentityAgent =
+          if pkgs.stdenv.isDarwin
+          then "~/Library/Containers/com.bitwarden.desktop/Data/.bitwarden-ssh-agent.sock"
+          else "~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock";
+
+        # Former home-manager defaults, kept verbatim.
+        ForwardAgent = false;
+        AddKeysToAgent = "no";
+        Compression = false;
+        ServerAliveInterval = 0;
+        ServerAliveCountMax = 3;
+        HashKnownHosts = false;
+        UserKnownHostsFile = "~/.ssh/known_hosts";
+        ControlMaster = "no";
+        ControlPath = "~/.ssh/master-%r@%n:%p";
+        ControlPersist = "no";
+      };
 
       # These three keys live only on disk, not in Bitwarden. With a global
       # IdentityAgent configured, OpenSSH routes explicitly-configured
