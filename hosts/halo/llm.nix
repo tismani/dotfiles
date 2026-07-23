@@ -53,6 +53,37 @@
       AUDIO_TTS_OPENAI_API_KEY = "lemonade"; # ignored by lemonade, must be non-empty
       AUDIO_TTS_MODEL = "kokoro-v1";
       AUDIO_TTS_VOICE = "af_bella";
+
+      # Speech-to-text: built-in faster-whisper running locally.
+      # NOTE: mic capture in the browser needs a secure context (HTTPS or localhost)
+      AUDIO_STT_ENGINE = ""; # empty = local whisper
+      WHISPER_MODEL = "medium.en";
+
+      # Web search via the local SearXNG instance defined below.
+      ENABLE_WEB_SEARCH = "True";
+      WEB_SEARCH_ENGINE = "searxng";
+      SEARXNG_QUERY_URL = "http://127.0.0.1:8888/search?q=<query>";
+
+      # RAG / document chat: local sentence-transformers embeddings, no external service required.
+      RAG_EMBEDDING_ENGINE = ""; # empty = local sentence-transformers
+      RAG_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2";
+      ENABLE_RAG_HYBRID_SEARCH = "True"; # Hybrid search adds a reranker for quality.
+    };
+  };
+
+  # SearXNG: local, loopback-only metasearch backing open-webui web search.
+  services.searx = {
+    enable = true;
+    package = pkgs.searxng;
+    settings = {
+      server = {
+        port = 8888;
+        bind_address = "127.0.0.1";
+        secret_key = "3U7GHWo1ruE0dz6kVqIxqVo+J65X1uG68NYdnlQ0VNg=";
+        limiter = false; # allow open-webui's automated queries
+      };
+      # open-webui consumes results as JSON, which searxng disables by default.
+      search.formats = [ "html" "json" ];
     };
   };
 
