@@ -53,6 +53,9 @@
   services.displayManager.gdm.enable = true;
   services.desktopManager.gnome.enable = true;
 
+  # niri (see desktop.nix) is off for now — GNOME only.
+  desktop.niri.enable = false;
+
   # Configure keymap in X11
   services.xserver.xkb = {
     layout = "us";
@@ -99,9 +102,16 @@
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-  #  wget
+    vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
+    bitwarden-desktop
   ];
+
+  # Added this to fix bitwarden-desktop. Remove it later if upstream is fixed.
+  # https://github.com/NixOS/nixpkgs/pull/545058
+  nixpkgs.config.permittedInsecurePackages = [
+    "electron-39.8.10"
+  ];
+  
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.

@@ -37,6 +37,26 @@
     };
   };
 
+  # Preload the main chat model into lemonade right after lemond (re)starts,
+  # so it's already resident by the time open-webui is opened instead of
+  # eating the first request's latency. ExecStartPost blocks lemond's
+  # transition to "active" until this finishes, so raise TimeoutStartSec to
+  # give a cold ~22 GB GGUF load enough room.
+  systemd.services.lemond.serviceConfig = {
+    TimeoutStartSec = "300s";
+    ExecStartPost = [
+      (toString (pkgs.writeShellScript "lemonade-preload" ''
+        set -euo pipefail
+        base="http://127.0.0.1:${toString config.hardware.amd-npu.lemonade.port}"
+        until ${pkgs.curl}/bin/curl -fs "$base/api/v1/health" >/dev/null; do
+          sleep 1
+        done
+        ${pkgs.lemonade}/bin/lemonade --host 127.0.0.1 --port ${toString config.hardware.amd-npu.lemonade.port} \
+          load "Qwen3.6-35B-A3B-MTP-GGUF" --pinned
+      ''))
+    ];
+  };
+
   services.open-webui = {
     enable = true;
     host = "0.0.0.0";

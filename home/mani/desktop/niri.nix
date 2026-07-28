@@ -22,7 +22,9 @@ in
             tap
             natural-scroll
         }
-        mouse {}
+        mouse {
+            natural-scroll
+        }
         warp-mouse-to-focus
     }
 
@@ -105,6 +107,10 @@ in
     // lock screen, wallpaper and clipboard history.
     spawn-at-startup "noctalia-shell"
     spawn-at-startup "xwayland-satellite"
+
+    // Idle / Power Management
+    spawn-at-startup "swayidle" "-w" "timeout" "600" "noctalia-shell" "ipc" "call" "lockScreen" lock"
+    spawn-at-startup "swayidle" "-w" "timeout" "660" "niri msg action power-off-monitors"
 
     binds {
         Mod+Shift+Slash { show-hotkey-overlay; }
