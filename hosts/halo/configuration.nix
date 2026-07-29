@@ -11,6 +11,7 @@
       ./llm.nix
       ./flatpak.nix
       ./desktop.nix
+      ./power.nix
     ];
 
   # Bootloader.
