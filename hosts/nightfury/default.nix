@@ -57,6 +57,21 @@
   };
 
   system.defaults.CustomUserPreferences = {
+    # ISO 8601 dates (2026-07-29) system-wide. This is the key System Settings'
+    # "Date format" customisation writes; nix-darwin has no typed option for it
+    # (only AppleICUForce24HourTime above), hence the escape hatch.
+    #
+    # Keys 1-4 are the ICU short/medium/long/full date styles. Applies to Cocoa
+    # apps — Finder, Mail, the menu bar, Safari's UI. Browsers that ship their
+    # own ICU (Chrome, Vivaldi, Firefox) format *page* content from their own
+    # UI language instead and are not affected by this.
+    "NSGlobalDomain".AppleICUDateFormatStrings = {
+      "1" = "y-MM-dd";
+      "2" = "y-MM-dd";
+      "3" = "y-MM-dd";
+      "4" = "EEEE, y-MM-dd";
+    };
+
     "com.apple.finder" = {
       ShowExternalHardDrivesOnDesktop = true;
       ShowHardDrivesOnDesktop = false;
