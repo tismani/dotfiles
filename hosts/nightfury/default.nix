@@ -153,6 +153,7 @@
     casks = [
      	"firefox"
       "google-chrome"
+      "vivaldi"
      	"wezterm"
      	"raycast"
      	"octarine"
@@ -181,6 +182,7 @@
       "WhatsApp Messenger" = 310633997;
       "uBlock Origin Lite" = 6745342698;
       "Infuse" = 1136220934;
+      "Parachute Backup"= 6748614170;
     };
   };
 

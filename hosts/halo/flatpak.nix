@@ -16,6 +16,7 @@
     };
     script = ''
       flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+      flatpak install --or-update --noninteractive --assumeyes flathub com.vivaldi.Vivaldi
     '';
   };
 

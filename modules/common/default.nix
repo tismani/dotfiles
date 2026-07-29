@@ -37,12 +37,15 @@
 
     nodejs_24
     rustc
+    rust-analyzer
+    cargo
+    cargo-tauri
+    pkg-config
     claude-code
     postman
     kubectl
     minikube
     fira-code-symbols
-    vivaldi
 
     # requires nixpkgs.config.allowUnfree = true;
     (vscode-with-extensions.override {
