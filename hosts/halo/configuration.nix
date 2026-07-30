@@ -112,7 +112,15 @@
   nixpkgs.config.permittedInsecurePackages = [
     "electron-39.8.10"
   ];
-  
+
+  # Run Electron apps natively on Wayland instead of through XWayland. The
+  # nixpkgs Electron wrappers only pass --ozone-platform-hint=auto when this is
+  # set. Relevant to bitwarden-desktop, whose clipboard support on GNOME goes
+  # through the XDG RemoteDesktop portal (GNOME does not implement
+  # zwlr_data_control_manager_v1, which is what Bitwarden uses elsewhere).
+  # The first copy raises a GNOME "remote control" permission prompt; approving
+  # it stores a restore token, so it is asked once. See bitwarden/clients#13431.
+  environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.

@@ -1,4 +1,15 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+
+let
+  # Bitwarden desktop app's SSH agent socket.
+  # nightfury: Bitwarden installed via Mac App Store (sandboxed container path).
+  # halo: Bitwarden installed from nixpkgs (plain home-directory path). A Flatpak
+  # install would instead be ~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock
+  bitwardenAgent =
+    if pkgs.stdenv.isDarwin
+    then "~/Library/Containers/com.bitwarden.desktop/Data/.bitwarden-ssh-agent.sock"
+    else "~/.bitwarden-ssh-agent.sock";
+in {
 
   # Public half of the keypairs; the private key lives only in Bitwarden.
   home.file.".ssh/halo.pub".text = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGrXTBSu8Qc25QC+4Y5Lk0mwzOlF9xTZBCKqjhpFYSRI\n";
@@ -16,13 +27,10 @@
 
     settings = {
       "*" = {
-        # Bitwarden desktop app's SSH agent socket.
-        # nightfury: Bitwarden installed via Mac App Store (sandboxed container path).
-        # halo: Bitwarden installed via Flatpak.
-        IdentityAgent =
-          if pkgs.stdenv.isDarwin
-          then "~/Library/Containers/com.bitwarden.desktop/Data/.bitwarden-ssh-agent.sock"
-          else "~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock";
+        # No agent by default. Only the hosts listed below whose private key
+        # actually lives in Bitwarden opt in, so an ad-hoc `ssh somewhere-else`
+        # never offers identities to (or wakes) the Bitwarden agent.
+        IdentityAgent = "none";
 
         # Former home-manager defaults, kept verbatim.
         ForwardAgent = false;
@@ -37,19 +45,19 @@
         ControlPersist = "no";
       };
 
-      # These three keys live only on disk, not in Bitwarden. With a global
-      # IdentityAgent configured, OpenSSH routes explicitly-configured
-      # IdentityFile offers through the agent first ("explicit agent" in
-      # `ssh -v`); since Bitwarden doesn't hold these keys, that silently
-      # fails auth instead of falling back to reading the file directly.
-      # IdentityAgent none keeps them on the old, working, agent-free path.
+      # These three keys live only on disk, not in Bitwarden, so they inherit
+      # the agent-free default from Host * above and read the file directly.
       # Forgejo is setup like this, so octarine can use Forgejo
       "10.1.2.155" = {
         HostName = "10.1.2.155";
         User = "git";
         IdentityFile = "~/.ssh/forgejo.key";
         IdentitiesOnly = true;
-        IdentityAgent = "none";
+      };
+
+      "10.2.2.143" = {
+        Hostname = "10.1.2.143";
+        User = "mani";
       };
 
       "10.1.2.119" = {
@@ -57,16 +65,17 @@
         User = "ubuntu";
         IdentityFile = "~/.ssh/hermes.key";
         IdentitiesOnly = true;
-        IdentityAgent = "none";
       };
 
-      # halo's key lives only in Bitwarden, so it's the one host that should
-      # actually go through the agent (set globally on Host * above).
+      # The hosts below authenticate with keys whose private half exists only in
+      # Bitwarden — the IdentityFile is the public key, and the signature has to
+      # come from the agent. These are the only entries that opt into it.
       halo = {
         HostName = "10.1.3.246";
         User = "mani";
         IdentityFile = "~/.ssh/halo.pub";
         IdentitiesOnly = true;
+        IdentityAgent = bitwardenAgent;
       };
 
       hostinger = {
@@ -74,6 +83,7 @@
         User = "mani";
         IdentityFile = "~/.ssh/hostinger.pub";
         IdentitiesOnly = true;
+        IdentityAgent = bitwardenAgent;
       };
 
       pve = {
@@ -81,6 +91,7 @@
         User = "root";
         IdentityFile = "~/.ssh/pve.pub";
         IdentitiesOnly = true;
+        IdentityAgent = bitwardenAgent;
       };
 
       bouncer = {
@@ -88,6 +99,7 @@
         User = "mani";
         IdentityFile = "~/.ssh/bouncer.pub";
         IdentitiesOnly = true;
+        IdentityAgent = bitwardenAgent;
       };
 
       services = {
@@ -95,6 +107,7 @@
         User = "mani";
         IdentityFile = "~/.ssh/services.pub";
         IdentitiesOnly = true;
+        IdentityAgent = bitwardenAgent;
       };
     };
   };
