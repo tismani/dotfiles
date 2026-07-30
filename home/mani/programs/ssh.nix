@@ -1,14 +1,14 @@
 { pkgs, ... }:
 
 let
-  # Bitwarden desktop app's SSH agent socket.
+  # Bitwarden desktop app's SSH agent socket. Both installs are sandboxed, so
+  # neither uses the plain ~/.bitwarden-ssh-agent.sock that a native install gets.
   # nightfury: Bitwarden installed via Mac App Store (sandboxed container path).
-  # halo: Bitwarden installed from nixpkgs (plain home-directory path). A Flatpak
-  # install would instead be ~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock
+  # halo: Bitwarden installed via Flatpak (see hosts/halo/flatpak.nix).
   bitwardenAgent =
     if pkgs.stdenv.isDarwin
     then "~/Library/Containers/com.bitwarden.desktop/Data/.bitwarden-ssh-agent.sock"
-    else "~/.bitwarden-ssh-agent.sock";
+    else "~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock";
 in {
 
   # Public half of the keypairs; the private key lives only in Bitwarden.

@@ -104,22 +104,14 @@
   # $ nix search wget
   environment.systemPackages = with pkgs; [
     vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-    bitwarden-desktop
+    # Bitwarden is installed as a Flatpak instead (see flatpak.nix) — clipboard
+    # copy is broken in the nixpkgs build.
   ];
 
-  # Added this to fix bitwarden-desktop. Remove it later if upstream is fixed.
-  # https://github.com/NixOS/nixpkgs/pull/545058
-  nixpkgs.config.permittedInsecurePackages = [
-    "electron-39.8.10"
-  ];
-
-  # Run Electron apps natively on Wayland instead of through XWayland. The
+  # Run Electron apps natively on Wayland instead of through XWayland; the
   # nixpkgs Electron wrappers only pass --ozone-platform-hint=auto when this is
-  # set. Relevant to bitwarden-desktop, whose clipboard support on GNOME goes
-  # through the XDG RemoteDesktop portal (GNOME does not implement
-  # zwlr_data_control_manager_v1, which is what Bitwarden uses elsewhere).
-  # The first copy raises a GNOME "remote control" permission prompt; approving
-  # it stores a restore token, so it is asked once. See bitwarden/clients#13431.
+  # set. Applies to VSCode, Postman and anything else Chromium-based, and buys
+  # proper HiDPI scaling. Flatpaks don't see it — they carry their own wrappers.
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
   # Some programs need SUID wrappers, can be configured further or are
