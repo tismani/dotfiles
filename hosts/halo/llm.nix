@@ -23,10 +23,23 @@
     enableLemonade = true; # OpenAI-compatible lemond server
     enableROCm = true; # ROCm GPU backend for llama.cpp / stable-diffusion
 
+    gpuTarget = "gfx1151"; # Strix Halo iGPU
+
     lemonade = {
       user = "mani";
       host = "0.0.0.0"; # reachable on the LAN (default: localhost)
       # port defaults to 13305
+
+      # Lemonade >= 11.5.0 validates the browser's Origin header and answers
+      # 403 "Origin not allowed" for anything non-loopback, so reaching the web
+      # UI over the LAN needs the origin listed here. Loopback and desktop
+      # schemes (tauri://, file://) are always allowed, so this is only for
+      # browsers on other machines. Env-only upstream — no config.json key, so
+      # `lemonade.settings` cannot carry it.
+      allowedOrigins = [
+        "http://10.1.3.246:13305" # halo on the LAN
+        "http://halo:13305"
+      ];
     };
 
     # Strix Halo / 128 GB unified-memory tuning. Emitted as the ttm
