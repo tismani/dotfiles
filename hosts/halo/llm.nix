@@ -40,6 +40,33 @@
         "http://10.1.3.246:13305" # halo on the LAN
         "http://halo:13305"
       ];
+
+      # Force full GPU offload rather than relying on llama.cpp's `-ngl auto`
+      # fit heuristic. Belt-and-braces: the actual cause of this host running
+      # everything on the CPU was NOT the fit heuristic but a stale
+      # ~/.cache/lemonade/bin/therock ROCm 7.13 runtime (downloaded 2026-07-19
+      # by a pre-#57 lemonade) that lemond prepends to LD_LIBRARY_PATH, where
+      # it shadows the nix llama-server's own ROCm 7.2.3 libs and leaves it
+      # with zero visible devices ("no usable GPU found, --gpu-layers option
+      # will be ignored"). nix-amd-ai patches will_install_therock() to false
+      # so it's never re-fetched, but nothing removes a dir that already
+      # exists — see the note below.
+      #
+      # Overrides (not extends) the module's flashAttn-generated `args`, hence
+      # --flash-attn is repeated here. Note this bypasses the fit check: a model
+      # too large for the GTT pool will now OOM rather than fall back to CPU.
+      # With two models pinned (~92 GiB of the 112 GiB pool) that margin is
+      # thin — drop back to `auto` if a third model is ever added.
+      settings = {
+        llamacpp.args = "--flash-attn on -ngl 99";
+
+        # Keep both preloaded models resident instead of evicting one to load
+        # the other: gpt-oss-120b (58.5 GiB + ~4.8 GiB KV — only 18 of its 36
+        # layers use full attention, the rest a 128-token sliding window) plus
+        # Qwen3.6-35B-A3B (21.3 GiB + ~5 GiB KV) is ~91 GiB against the 112 GiB
+        # TTM pool below. Leave headroom when adding a third.
+        max_loaded_models = -1;
+      };
     };
 
     # Strix Halo / 128 GB unified-memory tuning. Emitted as the ttm
@@ -50,22 +77,38 @@
     };
   };
 
-  # Preload the main chat model into lemonade right after lemond (re)starts,
-  # so it's already resident by the time open-webui is opened instead of
-  # eating the first request's latency. ExecStartPost blocks lemond's
-  # transition to "active" until this finishes, so raise TimeoutStartSec to
-  # give a cold ~22 GB GGUF load enough room.
+  # Preload both chat models into lemonade right after lemond (re)starts, so
+  # they're already resident by the time open-webui or an agent connects
+  # instead of eating the first request's latency. Both are pinned and
+  # max_loaded_models is -1, so neither evicts the other.
+  #
+  # gpt-oss-120b is the agent model: measured on this host at 588 t/s prefill
+  # @16k and 54 t/s decode, vs Qwen's 945 / 51 (llama-bench, -ngl 99 -fa 1).
+  # It decodes as fast despite 3.3x the parameters; Qwen stays as the
+  # low-latency model for short open-webui questions, where its ~1000 t/s
+  # prefill is the difference that shows.
+  #
+  # ExecStartPost blocks lemond's transition to "active" until this finishes,
+  # so TimeoutStartSec has to cover a cold load of both GGUFs (~80 GB off
+  # NVMe) rather than just one.
   systemd.services.lemond.serviceConfig = {
-    TimeoutStartSec = "300s";
+    TimeoutStartSec = "900s";
     ExecStartPost = [
       (toString (pkgs.writeShellScript "lemonade-preload" ''
         set -euo pipefail
-        base="http://127.0.0.1:${toString config.hardware.amd-npu.lemonade.port}"
+        port="${toString config.hardware.amd-npu.lemonade.port}"
+        base="http://127.0.0.1:$port"
         until ${pkgs.curl}/bin/curl -fs "$base/api/v1/health" >/dev/null; do
           sleep 1
         done
-        ${pkgs.lemonade}/bin/lemonade --host 127.0.0.1 --port ${toString config.hardware.amd-npu.lemonade.port} \
-          load "Qwen3.6-35B-A3B-MTP-GGUF" --pinned
+        # A preload is an optimization, not a precondition: don't let a model
+        # that fails to load (bad download, GTT pressure) take the whole
+        # service down with it — lemond still serves everything else.
+        for model in "gpt-oss-120b-GGUF" "Qwen3.6-35B-A3B-MTP-GGUF"; do
+          ${pkgs.lemonade}/bin/lemonade --host 127.0.0.1 --port "$port" \
+            load "$model" --pinned \
+            || echo "lemonade-preload: failed to load $model, continuing" >&2
+        done
       ''))
     ];
   };
