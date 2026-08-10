@@ -99,6 +99,11 @@
   # Install firefox.
   programs.firefox.enable = true;
   programs.git.enable = true;
+  programs.appimage = {
+    enable = true;
+    binfmt = true;
+  };
+
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget

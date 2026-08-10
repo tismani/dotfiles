@@ -17,6 +17,7 @@ in {
   home.file.".ssh/hostinger.pub".text = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBJB31gq6Jv0QwEOs23AGjAif3i7wkTtrXi/jf2BXxoW\n";
   home.file.".ssh/pve.pub".text = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH4u1ArDc1SCrmA3qLBVmTQY353v69n2D/XuOLRB76e8\n";
   home.file.".ssh/services.pub".text = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK5AgLM722FbpRbHzI9GpD/6Vpzw8V80Ga+d8LAp+TWr\n";
+  home.file.".ssh/fleet.pub".text = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII/MUIwp9waFBtjQmgxVQLLMRDlLMqLzUA5gxvIOTqi4\n";
 
   programs.ssh = {
     enable = true;
@@ -102,6 +103,14 @@ in {
         IdentityAgent = bitwardenAgent;
       };
 
+
+      fleet = {
+        HostName = "10.1.2.144";
+        User = "ubuntu";
+        IdentityFile = "~/.ssh/fleet.pub";
+        IdentitiesOnly = true;
+        IdentityAgent = bitwardenAgent;
+      };
       services = {
         HostName = "10.1.2.102";
         User = "mani";
