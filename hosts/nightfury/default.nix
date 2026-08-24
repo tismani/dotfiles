@@ -4,7 +4,8 @@
   nixpkgs.hostPlatform = "aarch64-darwin";
   system.primaryUser = "mani";
 
-  # TouchID for sudo authentication (reattach makes it work inside tmux)
+  # TouchID for sudo authentication (reattach makes it work inside a
+  # multiplexer session, i.e. herdr panes)
   security.pam.services.sudo_local = {
     touchIdAuth = true;
     reattach = true;

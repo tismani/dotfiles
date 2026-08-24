@@ -3,7 +3,8 @@
 # Only cross-platform settings live here. Anything Linux-only (cursor theme,
 # desktop targets) is set in the host that needs it. Because home-manager is a
 # system module, stylix propagates these into our home config automatically, so
-# kitty, helix, tmux, bat, fish, starship, GTK, etc. all get themed from here.
+# kitty, helix, bat, fish, starship, GTK, etc. all get themed from here.
+# (herdr has no stylix target; its theme is set in home/mani/programs/herdr.nix.)
 { pkgs, ... }:
 
 {

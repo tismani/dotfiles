@@ -4,7 +4,7 @@
     ./kitty.nix
     ./yt-dlp.nix
     ./starship.nix
-    ./tmux.nix
+    ./herdr.nix
     ./ssh.nix
     ./helix.nix
   ];
