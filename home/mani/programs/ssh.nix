@@ -6,7 +6,7 @@ let
   # nightfury: Bitwarden installed via Mac App Store (sandboxed container path).
   # halo: Bitwarden installed via Flatpak (see hosts/halo/flatpak.nix).
   bitwardenAgent =
-    if pkgs.stdenv.isDarwin
+    if pkgs.stdenv.hostPlatform.isDarwin
     then "~/Library/Containers/com.bitwarden.desktop/Data/.bitwarden-ssh-agent.sock"
     else "~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock";
 in {

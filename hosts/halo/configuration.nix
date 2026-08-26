@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 {
   imports =
@@ -56,6 +56,16 @@
 
   # niri (see desktop.nix) is off for now — GNOME only.
   desktop.niri.enable = false;
+
+  # Because GNOME is enabled, stylix's NixOS qt target defaults the platform to
+  # "gnome", which its own home-manager target rejects (only "qtct" is
+  # supported) and which also sets the deprecated qt.platformTheme.name =
+  # "gnome". Pin qtct here rather than in the home config: it propagates to
+  # home-manager via stylix.homeManagerIntegration.followSystem, so it applies
+  # whether or not the niri desktop module is enabled. Qt apps are then themed
+  # by stylix through qt5ct/qt6ct instead of GNOME's adwaita platform theme.
+  # mkForce because stylix's own NixOS module sets "gnome" at normal priority.
+  stylix.targets.qt.platform = lib.mkForce "qtct";
 
   # Configure keymap in X11
   services.xserver.xkb = {

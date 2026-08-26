@@ -32,10 +32,10 @@
       cd = "z";
       # no #hostname attribute needed: *-rebuild defaults to the current hostname
       rebuild =
-      if pkgs.stdenv.isDarwin
+      if pkgs.stdenv.hostPlatform.isDarwin
       then "sudo darwin-rebuild switch --flake ~/dotfiles"
       else "sudo nixos-rebuild switch --flake ~/dotfiles";
-    } // lib.optionalAttrs pkgs.stdenv.isDarwin {
+    } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
       rebuild-halo = "nixos-rebuild switch --flake ~/dotfiles#halo --target-host mani@halo --build-host mani@halo --elevate=sudo --ask-elevate-password";
     };
     initContent = ''
