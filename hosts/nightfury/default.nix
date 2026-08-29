@@ -16,8 +16,6 @@
       autohide = true;
       show-recents = false;
       launchanim = false;
-      show-process-indicators = true;
-      orientation = "bottom";
       tilesize = 36;
       minimize-to-application = true;
       mineffect = "scale";
@@ -84,7 +82,6 @@
       DisableAllAnimations = true;
       NewWindowTarget = "PfDe";
       NewWindowTargetPath = "file:///Users/mani/Desktop/";
-      AppleShowAllExtensions = true;
       FXEnableExtensionChangeWarning = false;
       ShowStatusBar = true;
       ShowPathbar = true;
@@ -129,11 +126,8 @@
     "com.apple.ImageCapture".disableHotPlug = true;
     # Turn on app auto-update
     "com.apple.commerce".AutoUpdate = true;
-    "com.googlecode.iterm2".PromptOnQuit = false;
     "com.google.Chrome" = {
-      AppleEnableSwipeNavigateWithScrolls = true;
       DisablePrintPreview = true;
-      PMPrintingExpandedStateForPrint2 = true;
     };
   };
 
@@ -141,6 +135,13 @@
     mas
     nixos-rebuild # deploy halo remotely
   ];
+
+  # nix-darwin's /etc/zprofile does not run macOS's path_helper, so
+  # /etc/paths.d/homebrew is never read and brew-installed binaries (omp, and
+  # brew itself) are invisible to both zsh and fish. Add the prefix here so
+  # both shells get it from one place. mkAfter appends, keeping nix ahead of
+  # homebrew on the PATH so a formula cannot shadow a nix package.
+  environment.systemPath = lib.mkAfter [ "/opt/homebrew/bin" ];
 
   homebrew = {
     enable = true;
@@ -159,6 +160,7 @@
      	"raycast"
      	"octarine"
       "stats"
+      "vorssaint"
       "protonvpn"
       "warp"
       "vlc"
@@ -170,6 +172,23 @@
       "wifiman"
       "synology-drive"
       "docker-desktop" # virtualisation.docker.enable is not available on nix-darwin
+    ];
+
+    # Homebrew refuses to load formulae from third-party taps unless the tap
+    # is trusted, since a tap can run arbitrary Ruby at install time.
+    # trusted = true renders `trusted: true` into the Brewfile entry, which is
+    # the declarative equivalent of running `brew trust can1357/tap`.
+    taps = [
+      {
+        name = "can1357/tap";
+        trusted = true;
+      }
+    ];
+
+    brews = [
+      # OMP coding agent. A formula, not a cask: the tap ships a prebuilt
+      # binary, so this is a download rather than a build.
+      "omp"
     ];
 
     masApps = {
@@ -188,7 +207,6 @@
   };
 
   users.users.mani = {
-    name = "mani";
     home = "/Users/mani";
   };
   home-manager.users.mani.home.homeDirectory = lib.mkForce "/Users/mani";

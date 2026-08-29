@@ -7,9 +7,7 @@
   programs = {
     starship = {
       enable = true;
-      enableBashIntegration = true;
-      enableFishIntegration = true;
-      enableZshIntegration = true;
+      # fish integration is manual — see modules/programs/fish.nix (system-managed fish).
       # nerd-font-symbols preset downloaded from starship website
       settings = builtins.fromTOML (builtins.readFile ./nerd-font-symbols.toml);
     };

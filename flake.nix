@@ -4,11 +4,6 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    # Escape hatch for packages that are broken on unstable. Exposed as
-    # `pkgs.stable` by modules/common; reference it explicitly per package
-    # (`pkgs.stable.foo`) rather than overriding attributes globally.
-    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-25.11";
-
     nixos-hardware.url = "github:NixOS/nixos-hardware";
 
     # AMD AI inference stack (Lemonade + ROCm/NPU backends) for Strix Halo.

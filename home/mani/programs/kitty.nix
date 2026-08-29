@@ -28,9 +28,7 @@
       strip_trailing_spaces = "smart";
       confirm_os_window_close = 0;
 
-      # shell = "zsh";
       shell = "/run/current-system/sw/bin/fish";
-      shell_integration = "enabled";
     };
 
     # Colours come from stylix (Dracula). Font/opacity above are explicit and

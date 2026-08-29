@@ -1,23 +1,8 @@
-{ pkgs, inputs, ... }: {
+{ pkgs, ... }: {
 
   imports = [ ./stylix.nix ];
 
   nixpkgs.config.allowUnfree = true;
-
-  # `pkgs.stable.<name>` pulls a single package from the stable channel while
-  # everything else stays on unstable. Deliberately additive: overriding
-  # `pkgs.<name>` directly would swap the package for every consumer of it and
-  # trigger mass rebuilds. Costs a second nixpkgs evaluation, so use sparingly,
-  # and prefer it only for standalone applications — mixing stable *libraries*
-  # into unstable builds is a good way to get subtle breakage.
-  nixpkgs.overlays = [
-    (final: prev: {
-      stable = import inputs.nixpkgs-stable {
-        inherit (final.stdenv.hostPlatform) system;
-        config.allowUnfree = true;
-      };
-    })
-  ];
 
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
@@ -60,7 +45,6 @@
     postman
     kubectl
     minikube
-    fira-code-symbols
 
     # requires nixpkgs.config.allowUnfree = true;
     (vscode-with-extensions.override {
@@ -68,11 +52,5 @@
         ms-vscode-remote.remote-ssh
       ];
     })
-  ];
-
-  fonts.packages = with pkgs; [
-    nerd-fonts.jetbrains-mono
-    nerd-fonts.fira-code
-    nerd-fonts.hack
   ];
 }
