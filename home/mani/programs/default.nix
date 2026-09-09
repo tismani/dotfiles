@@ -7,5 +7,6 @@
     ./herdr.nix
     ./ssh.nix
     ./helix.nix
+    ./omp.nix
   ];
 }

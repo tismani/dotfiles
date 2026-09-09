@@ -1,4 +1,4 @@
-{ lib, pkgs, inputs, ... }: {
+{ config, lib, pkgs, inputs, ... }: {
 
   networking.hostName = "nightfury";
   nixpkgs.hostPlatform = "aarch64-darwin";
@@ -156,6 +156,7 @@
      	"firefox"
       "google-chrome"
       "vivaldi"
+      "kitty"
      	"wezterm"
      	"raycast"
      	"octarine"
@@ -172,6 +173,8 @@
       "wifiman"
       "synology-drive"
       "docker-desktop" # virtualisation.docker.enable is not available on nix-darwin
+      "codex"
+      "unsloth"
     ];
 
     # Homebrew refuses to load formulae from third-party taps unless the tap
@@ -183,12 +186,17 @@
         name = "can1357/tap";
         trusted = true;
       }
+      {
+        name = "netbirdio/tap";
+        trusted = true;
+      }
     ];
 
     brews = [
       # OMP coding agent. A formula, not a cask: the tap ships a prebuilt
       # binary, so this is a download rather than a build.
       "omp"
+      "netbirdio/tap/netbird"
     ];
 
     masApps = {
@@ -210,6 +218,53 @@
     home = "/Users/mani";
   };
   home-manager.users.mani.home.homeDirectory = lib.mkForce "/Users/mani";
+
+  # Terminal stores fonts as archived NSFont objects, so a plain FontSize
+  # preference has no effect. Preserve the profiles and resize their fonts.
+  home-manager.users.mani.home.activation.terminalPreferences =
+    {
+      after = [ "writeBoundary" ];
+      before = [];
+      data = ''
+      run ${pkgs.python3}/bin/python3 <<'PY'
+      import plistlib
+      import subprocess
+
+      domain = "com.apple.Terminal"
+      result = subprocess.run(
+          ["/usr/bin/defaults", "export", domain, "-"],
+          capture_output=True, check=False,
+      )
+      prefs = plistlib.loads(result.stdout) if result.returncode == 0 else {}
+      prefs["Shell"] = "/run/current-system/sw/bin/fish"
+      profiles = prefs.setdefault("Window Settings", {})
+      for key in ("Default Window Settings", "Startup Window Settings"):
+          name = prefs.setdefault(key, "Basic")
+          profile = profiles.setdefault(name, {"name": name, "type": "Window Settings"})
+          if "Font" in profile:
+              font = plistlib.loads(profile["Font"])
+          else:
+              font = {
+                  "$version": 100000, "$archiver": "NSKeyedArchiver",
+                  "$top": {"root": plistlib.UID(1)},
+                  "$objects": ["$null", {
+                      "NSName": plistlib.UID(2), "NSSize": 13.0,
+                      "NSfFlags": 16, "$class": plistlib.UID(3),
+                  }, "Menlo-Regular", {
+                      "$classname": "NSFont", "$classes": ["NSFont", "NSObject"],
+                  }],
+              }
+          for obj in font["$objects"]:
+              if isinstance(obj, dict) and "NSSize" in obj:
+                  obj["NSSize"] = float(${toString config.stylix.fonts.sizes.terminal})
+          profile["Font"] = plistlib.dumps(font, fmt=plistlib.FMT_BINARY)
+      subprocess.run(
+          ["/usr/bin/defaults", "import", domain, "-"],
+          input=plistlib.dumps(prefs), check=True,
+      )
+      PY
+      '';
+    };
 
   system.stateVersion = 5;
 }

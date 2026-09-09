@@ -3,6 +3,8 @@
 {
   programs.kitty = {
     enable = true;
+    # Use Homebrew's signed macOS app to help preserve privacy permissions across updates; Home Manager manages settings.
+    package = if pkgs.stdenv.hostPlatform.isDarwin then null else pkgs.kitty;
 
     # Font (FiraCode Nerd Font Mono @ 13) and background opacity are set by
     # stylix — see modules/common/stylix.nix (fonts.sizes.terminal /

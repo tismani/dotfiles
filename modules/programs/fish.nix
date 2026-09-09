@@ -28,6 +28,16 @@
       zoxide init fish | source
       direnv hook fish | source
 
+      # The SSH kitten installs Kitty's terminfo on the remote host.
+      # Keep ordinary SSH in other terminals and if kitten is unavailable.
+      function ssh --wraps ssh --description 'SSH with Kitty terminal support'
+        if set -q KITTY_WINDOW_ID; and command -q kitten
+          command kitten ssh $argv
+        else
+          command ssh $argv
+        end
+      end
+
       function fish_user_key_bindings
         if command -s fzf-share >/dev/null
           source (fzf-share)/key-bindings.fish
