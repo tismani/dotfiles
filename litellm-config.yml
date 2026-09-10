@@ -1,0 +1,100 @@
+model_list:
+  # Preferred routes: llama-swap enforces one resident GGUF at a time.
+  - model_name: Qwen3.6-35B-A3B-MTP-GGUF
+    litellm_params:
+      model: openai/Qwen3.6-35B-A3B-MTP-GGUF
+      api_base: http://halo:9292/v1
+      api_key: none
+      timeout: 1800
+    model_info:
+      mode: chat
+      max_input_tokens: 1010000
+
+  - model_name: Qwen3.8-27B-GGUF
+    litellm_params:
+      model: openai/Qwen3.8-27B-GGUF
+      api_base: http://halo:9292/v1
+      api_key: none
+      timeout: 1800
+    model_info:
+      mode: chat
+      max_input_tokens: 1000000
+
+  - model_name: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
+    litellm_params:
+      model: openai/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
+      api_base: http://halo:9292/v1
+      api_key: none
+      timeout: 1800
+    model_info:
+      mode: chat
+      max_input_tokens: 1048576
+
+  - model_name: Gemma-4-26B-A4B-it-MTP-GGUF
+    litellm_params:
+      model: openai/Gemma-4-26B-A4B-it-MTP-GGUF
+      api_base: http://halo:9292/v1
+      api_key: none
+      timeout: 1800
+    model_info:
+      mode: chat
+      max_input_tokens: 262144
+
+  # Direct Lemonade routes for maintenance/testing. These bypass llama-swap's
+  # exclusivity, so do not use them while a llama-swap backend is resident.
+  - model_name: Qwen3.6-35B-A3B-MTP-GGUF-lemonade
+    litellm_params:
+      model: openai/Qwen3.6-35B-A3B-MTP-GGUF
+      api_base: http://halo:13305/api/v1
+      api_key: none
+      timeout: 1800
+    model_info:
+      mode: chat
+      max_input_tokens: 262144
+
+  - model_name: Qwen3.8-27B-GGUF-lemonade
+    litellm_params:
+      model: openai/Qwen3.8-27B-GGUF
+      api_base: http://halo:13305/api/v1
+      api_key: none
+      timeout: 1800
+    model_info:
+      mode: chat
+      max_input_tokens: 262144
+
+  - model_name: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF-lemonade
+    litellm_params:
+      model: openai/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
+      api_base: http://halo:13305/api/v1
+      api_key: none
+      timeout: 1800
+    model_info:
+      mode: chat
+      max_input_tokens: 262144
+
+  - model_name: Gemma-4-26B-A4B-it-MTP-GGUF-lemonade
+    litellm_params:
+      model: openai/Gemma-4-26B-A4B-it-MTP-GGUF
+      api_base: http://halo:13305/api/v1
+      api_key: none
+      timeout: 1800
+    model_info:
+      mode: chat
+      max_input_tokens: 262144
+
+  - model_name: kokoro-v1-lemonade
+    litellm_params:
+      model: openai/kokoro-v1
+      api_base: http://halo:13305/api/v1
+      api_key: none
+      timeout: 600
+    model_info:
+      mode: audio_speech
+
+litellm_settings:
+  drop_params: true
+  request_timeout: 1800
+  num_retries: 0
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

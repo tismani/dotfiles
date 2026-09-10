@@ -312,11 +312,11 @@ curl --fail http://127.0.0.1:9292/v1/models
 
 llama-swap serves `http://halo:9292/v1` without authentication. TCP port 9292 is
 open on all interfaces, including the local network and Tailscale. No API key or
-secret file is needed. The initial model list is empty; installation does not
-download weights.
+secret file is needed. The configured Qwen3.6, Qwen3.8, Nemotron, and Gemma GGUF
+models load on demand; llama-swap keeps only one of them resident at a time.
 
-Follow [Halo LLM gateway setup](halo-llm.md) to download models with Lemonade,
-register their absolute GGUF paths in `hosts/halo/llm.nix`, and rebuild.
+Follow [Halo LLM gateway setup](halo-llm.md) for cache ownership, model paths,
+and the post-deployment load and swap checks.
 
 ## 10. Apply later changes and recover if needed
 
