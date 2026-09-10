@@ -9,11 +9,18 @@ Nix is already installed; no separate Nix, Lix, or Home Manager installation is 
 ## 1. Check the fresh installation
 
 In the GUI installer, use UEFI boot, choose GNOME, and create user `mani` with a
-password and administrator access. The straightforward layout is an unencrypted
-ext4 root and an EFI partition mounted at `/boot`; swap is optional. Let the
-installer create the partitions. There are no required filesystem labels for
-this walkthrough because you will use the hardware configuration it generated.
-If installation is already complete, continue from your installed desktop.
+password and administrator access. Use an unencrypted ext4 root, a FAT32 EFI
+system partition mounted at `/boot`, and a Linux swap **partition**. Choose a
+swap-partition option in the installer, or use its manual partitioning screen
+if necessary. The committed configuration requires all three; a swap file or
+zram does not replace the swap partition for this setup.
+
+The repository configuration is the source of truth. After installation, you
+will change the filesystem labels to match it, keeping the committed hardware
+configuration. If your fresh install uses encryption, Btrfs, a separate `/home`,
+or no swap partition, it does not match this guide. For a disposable fresh
+installation, rerun the GUI installer with the layout above before continuing;
+back up any data you have added first.
 
 Connect to the internet, open a terminal, and run these commands as your normal
 user. Use Bash for the commands in this guide:
@@ -30,16 +37,14 @@ swapon --show
 ```
 
 Expect `mani`, `/home/mani`, working sudo, UEFI confirmation, and the EFI
-filesystem at `/boot`. An empty swap listing is fine if you selected no swap.
+filesystem at `/boot`, plus a Linux swap partition visible in `lsblk -f`.
 If you installed under another username, create a `mani` administrator account
 in GNOME Settings and log into it before continuing. These dotfiles manage
 `mani`; changing that identity requires editing the system and home configuration.
 
-The host enables systemd-boot. If your install uses legacy BIOS, another EFI
-mountpoint, or a different bootloader, adapt the host boot settings before
-rebuilding. For an encrypted or custom filesystem layout, also carry over any
-required storage/unlock settings from the installer configuration in step 4.
-The host does not configure Secure Boot signing.
+The host enables systemd-boot and does not configure Secure Boot signing.
+Use a UEFI installation with `/boot` as the EFI mountpoint and firmware settings
+that permit this bootloader.
 
 ## 2. Back up the installer configuration
 
@@ -75,52 +80,118 @@ machine or backup to `/home/mani/dotfiles`, including `.git` and `flake.lock`.
 If that directory already contains your checkout, use it instead of cloning over
 it. Keep the supplied lock file so the first build uses the pinned dependencies.
 
-## 4. Use this installation's hardware configuration
+## 4. Label the installed partitions to match the config
 
-The repository's
+Keep
 [`hosts/halo/hardware-configuration.nix`](../hosts/halo/hardware-configuration.nix)
-currently expects labels `nixos`, `boot`, and `swap`. A GUI install may use UUIDs,
-different labels, or no swap. Replace that file **in your Halo checkout** with the
-one generated for the running installation:
+as committed. It requires these exact **filesystem labels**, which are different
+from GPT partition names (`PARTLABEL`):
+
+| Use | Filesystem | Exact label | Configured device |
+| --- | --- | --- | --- |
+| `/` | ext4 | `nixos` | `/dev/disk/by-label/nixos` |
+| `/boot` | FAT32 (`vfat`) | `boot` | `/dev/disk/by-label/boot` |
+| Swap | Linux swap partition | `swap` | `/dev/disk/by-label/swap` |
+
+### Identify the devices
+
+In the installed system, get the label tools and inspect the disks:
+
+```sh
+nix-shell -p e2fsprogs dosfstools util-linux
+findmnt -no SOURCE,FSTYPE /
+findmnt -no SOURCE,FSTYPE /boot
+swapon --show
+lsblk -o NAME,PATH,SIZE,MODEL,FSTYPE,LABEL,UUID,MOUNTPOINTS
+cat /etc/nixos/hardware-configuration.nix
+```
+
+Match root and EFI to the mounted devices and identify the swap partition on the
+same installed disk. Verify the model and size; do not select the installer USB
+or another drive. Record the current UUIDs and labels in your backup folder.
+Check all attached disks for duplicate `nixos`, `boot`, or `swap` labels; detach
+any other disk with a conflicting label before continuing.
+
+Set these variables to your verified partitions. The names below are examples;
+the GUI installer may have created them in a different order:
+
+```sh
+ROOT_PART=/dev/nvme0n1p2
+EFI_PART=/dev/nvme0n1p1
+SWAP_PART=/dev/nvme0n1p3
+sudo blkid "$ROOT_PART" "$EFI_PART" "$SWAP_PART"
+```
+
+Confirm those devices are respectively `ext4`, `vfat`, and `swap` before running
+the next commands. Stop if any device or filesystem differs from that expectation.
+
+### Change labels without formatting
+
+The ext4 root label can be changed while mounted. Unmount the EFI filesystem
+before changing its label, and deactivate the selected swap partition first.
+Close applications before `swapoff`; if it fails because memory is insufficient,
+stop and free memory before retrying. If the selected swap is already inactive,
+skip the `swapoff` command.
+
+Run each command separately and continue only when it succeeds. Keep the EFI
+filesystem unmounted until its label has been set. If unmounting reports that it
+is busy, close the process using `/boot` and retry; do not force the unmount.
+
+```sh
+sudo swapoff "$SWAP_PART"
+sudo umount /boot
+sudo "$(command -v e2label)" "$ROOT_PART" nixos
+sudo "$(command -v fatlabel)" "$EFI_PART" boot
+sudo "$(command -v swaplabel)" -L swap "$SWAP_PART"
+sudo udevadm trigger --subsystem-match=block --action=change
+sudo udevadm settle
+sudo blkid "$ROOT_PART" "$EFI_PART" "$SWAP_PART"
+ls -l /dev/disk/by-label/{nixos,boot,swap}
+```
+
+These commands change labels without recreating filesystems or changing UUIDs;
+**do not run `mkfs` or `mkswap`**. Use lowercase `boot` even if `fatlabel` warns
+that uppercase is preferred: the config requires that exact case. See the
+[e2label manual](https://www.man7.org/linux/man-pages/man8/e2label.8.html),
+[fatlabel manual](https://www.man7.org/linux/man-pages/man8/fatlabel.8.html), and
+[swaplabel manual](https://www.man7.org/linux/man-pages/man8/swaplabel.8.html).
+
+Verify that each `/dev/disk/by-label` link resolves to the intended partition and
+that the UUIDs match those recorded earlier. Restore the EFI mount and swap using
+the new labels:
+
+```sh
+sudo mount /dev/disk/by-label/boot /boot
+sudo swapon /dev/disk/by-label/swap
+findmnt /boot
+swapon --show
+```
+
+Do not rebuild until `/boot` is mounted on the correct EFI partition and all
+three labels resolve correctly.
+
+If the installer configuration uses UUIDs, its previous boot generation remains
+usable because the UUIDs have not changed. If it uses old labels, that generation
+may no longer boot after relabeling; keep the installer USB available, and restore
+the recorded old labels from the live USB if you need to recover that generation.
+Do not reboot between relabeling and the successful `nixos-rebuild boot` in step 6.
+
+### Keep the repository settings
+
+Do not copy `/etc/nixos/hardware-configuration.nix` into the repository or replace
+its label-based devices with installer UUIDs. Keep the committed
+`system.stateVersion = "25.11"` and `home.stateVersion = "24.11"`; they are
+compatibility settings for this configuration, not versions to bump on reinstall.
+The Framework Desktop hardware module is already included by the flake.
 
 ```sh
 cd "$HOME/dotfiles"
-cp /etc/nixos/hardware-configuration.nix hosts/halo/hardware-configuration.nix
-git diff -- hosts/halo/hardware-configuration.nix
-cat /etc/nixos/configuration.nix
-```
-
-Check that the copied file describes your actual root, EFI mount, and swap (if
-any). Preserve its UUIDs, filesystem types, mount options, and encryption settings.
-Do not relabel or format the installed partitions to match the old file.
-The Halo configuration already imports this file, and the flake separately
-includes the Framework Desktop hardware module.
-
-Review `/etc/nixos/configuration.nix` for installation-specific settings outside
-the hardware file, especially `boot.initrd.luks`, keyfiles, additional mounts,
-and bootloader settings. Transfer any required settings into
-[`hosts/halo/configuration.nix`](../hosts/halo/configuration.nix), resolving
-conflicting definitions before proceeding. Do not import the entire installer
-configuration: it also defines settings already supplied by the flake.
-
-For this fresh installation, set `system.stateVersion` in
-`hosts/halo/configuration.nix` to the value from `/etc/nixos/configuration.nix`.
-The repository currently says `25.11`; keep it if that matches the installer.
-Keep `home.stateVersion = "24.11"` for the existing Home Manager configuration.
-These are compatibility settings, not package-version selectors; do not bump
-them as part of later updates. See the [NixOS manual](https://nixos.org/manual/nixos/stable/).
-
-```sh
-nano hosts/halo/configuration.nix
-git diff --check
 git diff -- hosts/halo/hardware-configuration.nix hosts/halo/configuration.nix
 ```
 
-Edits to tracked files are included in a local flake build without a commit.
-If you add new Nix files, run `git add` on those files so the Git-backed flake can
-see them. Save the reviewed machine-specific changes in Git before future pulls
-or remote rebuilds; every checkout used to deploy Halo needs the correct disk
-configuration.
+A fresh checkout should show no changes to these files. If you copied the
+installer hardware file while following an earlier version of this guide,
+restore the committed Halo file before building, preserving any unrelated work.
 
 ## 5. Build the Halo configuration
 
@@ -173,8 +244,9 @@ ls -l ~/.ssh/halo.pub
 flatpak list
 ```
 
-Expect hostname `halo`, the same installed filesystems, and successful Home
-Manager activation. The boot service installs Vivaldi and Bitwarden from Flathub.
+Expect hostname `halo`, root labeled `nixos`, EFI labeled `boot`, active swap
+labeled `swap`, and successful Home Manager activation. Use `lsblk -f` to check
+the labels. The boot service installs Vivaldi and Bitwarden from Flathub.
 If that download failed, restore connectivity and run:
 
 ```sh
@@ -262,11 +334,15 @@ would use the old installer configuration in `/etc/nixos`.
 
 From a configured [Nightfury](nightfury-bootstrap.md), `rebuild-halo` builds and
 activates on Halo over SSH and prompts for sudo authentication. It deploys the
-Nightfury checkout, so first ensure that checkout includes Halo's saved hardware
-and other configuration changes from this guide.
+Nightfury checkout, so ensure it contains the intended configuration revision.
+The committed filesystem labels work for both local and remote rebuilds.
 
 If the new generation cannot boot, select the previous working generation in
 the systemd-boot menu (hold Space during startup to reveal it). From that system,
-correct the checkout, rerun the `boot` command from step 6, and reboot. Keep the
+inspect the failure and rerun the `boot` command from step 6 after fixing it.
+Missing or incorrect labels must be corrected to match the committed config;
+use the live USB if needed, with the installed filesystems unmounted and swap
+inactive. Remember that an installer generation using old labels needs those
+labels restored before it can boot. Keep the
 installer USB and configuration backup available until the first successful
 boot; if no generation boots, use the USB to repair the installed configuration.
