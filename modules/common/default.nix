@@ -45,6 +45,7 @@
     postman
     kubectl
     minikube
+    glow
 
     # requires nixpkgs.config.allowUnfree = true;
     (vscode-with-extensions.override {

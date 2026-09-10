@@ -1,250 +1,272 @@
-# Halo: bootstrap after a fresh install
+# Halo: bootstrap after the NixOS GUI installer
 
-Halo is the Framework Desktop AMD AI Max host (`x86_64-linux`), using NixOS,
-UEFI/systemd-boot, GNOME, and user `mani` at `/home/mani`. Its entry point is
-[`hosts/halo/configuration.nix`](../hosts/halo/configuration.nix), selected by
-`nixosConfigurations.halo` in [`flake.nix`](../flake.nix).
-Nix and Home Manager come with this system configuration; no Lix installer is needed.
+This guide starts after installing NixOS with the graphical installer and booting
+into the installed desktop. It adopts these dotfiles on Halo, the Framework
+Desktop AMD AI Max (`x86_64-linux`), with GNOME and user `mani` at `/home/mani`.
+The flake installs the system packages and Home Manager configuration together.
+Nix is already installed; no separate Nix, Lix, or Home Manager installation is needed.
 
-## 1. Boot the installer
+## 1. Check the fresh installation
 
-Download an x86_64 NixOS installer from the [official download page](https://nixos.org/download/),
-write it to a USB drive, and boot it in UEFI mode. Use the following manual install
-route to install this flake directly. Connect Ethernet or use the installer
-desktop's network controls. Open a terminal and enter a root Bash shell:
+In the GUI installer, use UEFI boot, choose GNOME, and create user `mani` with a
+password and administrator access. The straightforward layout is an unencrypted
+ext4 root and an EFI partition mounted at `/boot`; swap is optional. Let the
+installer create the partitions. There are no required filesystem labels for
+this walkthrough because you will use the hardware configuration it generated.
+If installation is already complete, continue from your installed desktop.
+
+Connect to the internet, open a terminal, and run these commands as your normal
+user. Use Bash for the commands in this guide:
 
 ```sh
-sudo -i
 bash
+whoami
+printf '%s\n' "$HOME"
+sudo -v
 test -d /sys/firmware/efi && echo 'UEFI boot confirmed'
-lsblk -o NAME,SIZE,MODEL,FSTYPE,LABEL,MOUNTPOINTS
-```
-
-If UEFI is not confirmed, reboot the USB in UEFI mode. The configuration does not
-set up Secure Boot signing; use firmware settings that permit the NixOS bootloader.
-The general installation procedure is covered in the
-[NixOS installation guide](https://wiki.nixos.org/wiki/NixOS_Installation_Guide).
-
-## 2. Prepare partitions and the required labels
-
-[`hardware-configuration.nix`](../hosts/halo/hardware-configuration.nix) uses
-**filesystem labels**, not UUIDs or GPT partition names:
-
-| Use | Filesystem | Exact label | Configured device |
-| --- | --- | --- | --- |
-| `/` | ext4 | `nixos` | `/dev/disk/by-label/nixos` |
-| `/boot` | FAT32 EFI system partition | `boot` | `/dev/disk/by-label/boot` |
-| Swap | Linux swap partition | `swap` | `/dev/disk/by-label/swap` |
-
-All three must exist before booting this config. Reformatting replaces labels;
-reapply them on each reinstall. No encryption, Btrfs subvolumes, or swap file is
-declared. Those layouts require changing the host configuration first.
-
-### New disk / erase-and-reinstall route
-
-Back up anything needed first. Partitioning and formatting below erase data on
-the selected partitions. Identify the internal drive by model and size in
-`lsblk`; do not assume the installer USB or another disk is the target.
-
-Run `cfdisk /dev/nvme0n1`, replacing the device with your verified target. Create
-a GPT layout with a 1 GiB EFI System partition, a Linux swap partition (choose
-its size for your needs), and a Linux filesystem partition using the remaining
-space. Write the table and quit. These sizes/order are an example, not encoded
-in the repository. The config does not define a hibernation/resume setup.
-
-Set these variables to the actual partitions shown by `lsblk` after partitioning:
-
-```sh
-EFI_PART=/dev/nvme0n1p1
-SWAP_PART=/dev/nvme0n1p2
-ROOT_PART=/dev/nvme0n1p3
-lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS
-```
-
-Only after verifying those values and ensuring the partitions are unmounted:
-
-```sh
-mkfs.fat -F 32 -n boot "$EFI_PART"
-mkswap -L swap "$SWAP_PART"
-mkfs.ext4 -L nixos "$ROOT_PART"
-```
-
-### Existing compatible installation / relabel-only route
-
-If NixOS is already installed with ext4 root, FAT EFI, and a swap partition,
-boot the live USB and identify those partitions. Set the three variables above
-to match the existing layout. Unmount the target root and EFI partitions using
-their actual mountpoints shown by `lsblk`; disable the target swap with
-`swapoff "$SWAP_PART"` if `swapon --show` lists it. Then change labels without
-formatting:
-
-```sh
-e2label "$ROOT_PART" nixos
-fatlabel "$EFI_PART" boot
-swaplabel -L swap "$SWAP_PART"
-```
-
-Do not run `mkfs` or `mkswap` for this route. If retaining an installed system,
-its generated config may still refer to UUIDs; the steps below explicitly install
-this repository's configuration instead.
-
-## 3. Mount and check the target
-
-```sh
-udevadm settle
-blkid "$ROOT_PART" "$EFI_PART" "$SWAP_PART"
-mount /dev/disk/by-label/nixos /mnt
-mkdir -p /mnt/boot
-mount /dev/disk/by-label/boot /mnt/boot
-swapon /dev/disk/by-label/swap
-findmnt /mnt
-findmnt /mnt/boot
+findmnt /
+findmnt /boot
 swapon --show
 ```
 
-Check that no other attached drive has the same labels. Duplicate labels make
-`/dev/disk/by-label` ambiguous. The lowercase `boot` label is intentional; match
-the repository's case exactly.
+Expect `mani`, `/home/mani`, working sudo, UEFI confirmation, and the EFI
+filesystem at `/boot`. An empty swap listing is fine if you selected no swap.
+If you installed under another username, create a `mani` administrator account
+in GNOME Settings and log into it before continuing. These dotfiles manage
+`mani`; changing that identity requires editing the system and home configuration.
 
-## 4. Put the repository on the target
+The host enables systemd-boot. If your install uses legacy BIOS, another EFI
+mountpoint, or a different bootloader, adapt the host boot settings before
+rebuilding. For an encrypted or custom filesystem layout, also carry over any
+required storage/unlock settings from the installer configuration in step 4.
+The host does not configure Secure Boot signing.
 
-From the installer root shell:
+## 2. Back up the installer configuration
+
+Save the working installation's configuration before adopting the flake:
+
+```sh
+INSTALL_BACKUP="$HOME/nixos-installer-backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$INSTALL_BACKUP"
+sudo cp -a /etc/nixos "$INSTALL_BACKUP/"
+sudo chown -R "$(id -un):$(id -gn)" "$INSTALL_BACKUP"
+printf 'Installer configuration saved to %s\n' "$INSTALL_BACKUP"
+```
+
+Keep this backup until the new system boots successfully. The original files in
+`/etc/nixos` also remain in place; rebuilds with `--flake ~/dotfiles#halo` use the
+checkout instead.
+
+## 3. Get the dotfiles
+
+Start a temporary shell with Git, then clone as `mani` so the checkout belongs
+to your account:
 
 ```sh
 nix-shell -p git
-mkdir -p /mnt/home/mani
-git clone https://forgejo.internal.tismani.com/mani/dotfiles.git /mnt/home/mani/dotfiles
+git clone https://forgejo.internal.tismani.com/mani/dotfiles.git "$HOME/dotfiles"
+cd "$HOME/dotfiles"
+git status --short
 ```
 
-Forgejo requires internal DNS/network access and credentials. If unavailable,
-copy a complete checkout from another machine or backup, including `.git` and
-`flake.lock`, to `/mnt/home/mani/dotfiles`. If preserving a checkout already at
-that path, use it instead of cloning over it. Keep the existing lock file.
+Forgejo requires access to the internal network/DNS and repository credentials.
+Arrange that connectivity first, or copy a complete checkout from another
+machine or backup to `/home/mani/dotfiles`, including `.git` and `flake.lock`.
+If that directory already contains your checkout, use it instead of cloning over
+it. Keep the supplied lock file so the first build uses the pinned dependencies.
 
-For the same Halo hardware and the layout above, use the committed hardware
-configuration. If hardware changed, generate a scan in a temporary location and
-compare it; preserve the label-based filesystem entries when incorporating changes:
+## 4. Use this installation's hardware configuration
+
+The repository's
+[`hosts/halo/hardware-configuration.nix`](../hosts/halo/hardware-configuration.nix)
+currently expects labels `nixos`, `boot`, and `swap`. A GUI install may use UUIDs,
+different labels, or no swap. Replace that file **in your Halo checkout** with the
+one generated for the running installation:
 
 ```sh
-nixos-generate-config --root /mnt --dir /tmp/halo-hardware-scan
-diff -u /mnt/home/mani/dotfiles/hosts/halo/hardware-configuration.nix \
-  /tmp/halo-hardware-scan/hardware-configuration.nix
+cd "$HOME/dotfiles"
+cp /etc/nixos/hardware-configuration.nix hosts/halo/hardware-configuration.nix
+git diff -- hosts/halo/hardware-configuration.nix
+cat /etc/nixos/configuration.nix
 ```
 
-Differences in UUID-versus-label paths are expected. Do not overwrite the
-repository's hardware file blindly. Any newly added Nix files must be `git add`ed
-so the Git-backed flake can see them.
+Check that the copied file describes your actual root, EFI mount, and swap (if
+any). Preserve its UUIDs, filesystem types, mount options, and encryption settings.
+Do not relabel or format the installed partitions to match the old file.
+The Halo configuration already imports this file, and the flake separately
+includes the Framework Desktop hardware module.
 
-## 5. Restore the LiteLLM secret before first boot
+Review `/etc/nixos/configuration.nix` for installation-specific settings outside
+the hardware file, especially `boot.initrd.luks`, keyfiles, additional mounts,
+and bootloader settings. Transfer any required settings into
+[`hosts/halo/configuration.nix`](../hosts/halo/configuration.nix), resolving
+conflicting definitions before proceeding. Do not import the entire installer
+configuration: it also defines settings already supplied by the flake.
 
-The enabled LiteLLM service requires `/var/lib/secrets/litellm.env`. Restore a
-backup there on the mounted target, or generate a new key in the root Bash shell:
+For this fresh installation, set `system.stateVersion` in
+`hosts/halo/configuration.nix` to the value from `/etc/nixos/configuration.nix`.
+The repository currently says `25.11`; keep it if that matches the installer.
+Keep `home.stateVersion = "24.11"` for the existing Home Manager configuration.
+These are compatibility settings, not package-version selectors; do not bump
+them as part of later updates. See the [NixOS manual](https://nixos.org/manual/nixos/stable/).
 
 ```sh
-install -d -m 0700 /mnt/var/lib/secrets
-umask 077
-key="sk-$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
-printf 'LITELLM_MASTER_KEY=%s\n' "$key" > /mnt/var/lib/secrets/litellm.env
-chmod 0600 /mnt/var/lib/secrets/litellm.env
-printf 'Save this key in your password manager: %s\n' "$key"
-unset key
-umask 022
+nano hosts/halo/configuration.nix
+git diff --check
+git diff -- hosts/halo/hardware-configuration.nix hosts/halo/configuration.nix
 ```
 
-Use generation only when creating/replacing the key; it overwrites the file.
-Synchronize a new key with Nightfury's Keychain and other clients as described in
-[Halo LLM gateway setup](halo-llm.md). Keep the secret outside the repository.
+Edits to tracked files are included in a local flake build without a commit.
+If you add new Nix files, run `git add` on those files so the Git-backed flake can
+see them. Save the reviewed machine-specific changes in Git before future pulls
+or remote rebuilds; every checkout used to deploy Halo needs the correct disk
+configuration.
 
-## 6. Install, set passwords, and reboot
+## 5. Build the Halo configuration
+
+From the checkout, build without activating it:
 
 ```sh
-nixos-install --option experimental-features 'nix-command flakes' \
-  --flake /mnt/home/mani/dotfiles#halo
+sudo nixos-rebuild build --option experimental-features 'nix-command flakes' \
+  --flake "$HOME/dotfiles#halo"
 ```
 
-The initial build includes the AMD GPU/NPU and LLM stack and can take substantial
-time and disk space. Complete the installer root-password prompt. After a
-successful install, set `mani`'s password explicitly: the config creates the
-account but supplies no password or authorized SSH keys.
+The explicit feature option allows this first command to work before the flake
+has enabled flakes system-wide. The build includes the desktop, development
+tools, and AMD GPU/NPU and LLM stack, so allow substantial time and free disk
+space. If it fails, fix the reported error and rerun it before continuing.
+
+## 6. Make it the next boot configuration and reboot
+
+Once the build succeeds, install it as the next boot generation:
 
 ```sh
-nixos-enter --root /mnt -c 'passwd mani'
-nixos-enter --root /mnt -c 'chown -R mani:users /home/mani/dotfiles'
-reboot
+sudo nixos-rebuild boot --option experimental-features 'nix-command flakes' \
+  --flake "$HOME/dotfiles#halo"
 ```
 
-Remove the USB and boot the installed system. Home Manager was installed with
-the system. Keep `system.stateVersion = "25.11"` and `home.stateVersion = "24.11"`
-as configured; these are compatibility settings, not versions to bump on reinstall.
-
-## 7. Finish account, networking, and model setup
-
-Log in to GNOME as `mani`. Use Bash for the commands below (`bash` if necessary).
-
-1. Check the installed mounts and desktop services:
-
-   ```sh
-   hostname
-   findmnt /
-   findmnt /boot
-   swapon --show
-   systemctl --failed
-   systemctl status display-manager flatpak-add-flathub
-   flatpak list
-   ```
-
-   Expect hostname `halo`, all three labeled filesystems, and GNOME. Niri is
-   explicitly disabled. The boot service installs Vivaldi and Bitwarden from
-   Flathub; if its network download failed, run
-   `sudo systemctl restart flatpak-add-flathub` after connectivity is restored.
-2. Enroll the machine in Tailscale with `sudo tailscale up`. If using NetBird,
-   enroll it with `sudo netbird up`. Authentication and network memberships are
-   not stored in Nix. Restore any DHCP reservation needed for `10.1.3.246`, or
-   update the `halo` SSH entry in
-   [`home/mani/programs/ssh.nix`](../home/mani/programs/ssh.nix).
-3. Enable remote login by installing the trusted client public key. For the
-   existing Bitwarden-held Halo identity, the managed public key can be used:
-
-   ```sh
-   install -d -m 0700 ~/.ssh
-   cat ~/.ssh/halo.pub >> ~/.ssh/authorized_keys
-   chmod 0600 ~/.ssh/authorized_keys
-   ```
-
-   Run this once as `mani`. On Nightfury, unlock Bitwarden and enable its SSH
-   agent, then test `ssh halo` and `sudo -v` inside the session. After a reinstall,
-   verify Halo's new host-key fingerprint locally with
-   `sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` before replacing any old
-   client known-host entry. The config enables SSH but does not deploy authorized keys.
-4. Open Bitwarden on Halo and restore its account/SSH agent if using outgoing
-   SSH. The expected socket is
-   `~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock`. Restore any
-   disk-only private keys separately; Nix supplies only the public keys.
-5. Download models as `mani` (or restore `/var/lib/llm-models` from backup with
-   ownership `mani:users`):
-
-   ```sh
-   llm-model-pull all
-   systemctl status llama-swap litellm
-   curl --fail http://127.0.0.1:9292/v1/models
-   ```
-
-   Model weights are not downloaded by installation. Follow
-   [Halo LLM gateway setup](halo-llm.md) for the authenticated endpoint and clients.
-   Port 4000 is opened only on `tailscale0`; LAN access is not enabled by this config.
-6. Fish is configured but not selected as the login shell. Run `fish` to use the
-   aliases, or, after checking its path in `/etc/shells`, run
-   `chsh -s /run/current-system/sw/bin/fish` to select it.
-
-## 8. Rebuild later
+`boot` makes the new generation the default for the next startup; activation
+happens on reboot. This lets the first kernel and desktop change take effect
+together. See [nixos-rebuild](https://wiki.nixos.org/wiki/Nixos-rebuild).
+Only after that command succeeds, save your work and reboot:
 
 ```sh
+sudo reboot
+```
+
+Log into GNOME as `mani` using the password you set in the GUI installer. The
+configuration supplies no replacement password, so the existing account password
+is retained. The hostname is now `halo`; GNOME is enabled and Niri is disabled.
+
+## 7. Verify the system and home configuration
+
+Open a terminal and run:
+
+```sh
+hostname
+findmnt /
+findmnt /boot
+swapon --show
+systemctl --failed
+systemctl status display-manager home-manager-mani flatpak-add-flathub --no-pager
+ls -l ~/.ssh/halo.pub
+flatpak list
+```
+
+Expect hostname `halo`, the same installed filesystems, and successful Home
+Manager activation. The boot service installs Vivaldi and Bitwarden from Flathub.
+If that download failed, restore connectivity and run:
+
+```sh
+sudo systemctl restart flatpak-add-flathub
+```
+
+If Home Manager fails, inspect its log:
+
+```sh
+journalctl -u home-manager-mani -b --no-pager
+```
+
+Home Manager backs up conflicting files with the `.backup` suffix. If an existing
+backup blocks activation, move the specific conflicting file to your backup
+folder, then rerun `sudo nixos-rebuild switch --flake ~/dotfiles#halo`.
+
+Fish is installed but is not selected as the login shell. Run `fish` to use the
+configured aliases. To make it your login shell, check that
+`/run/current-system/sw/bin/fish` is listed in `/etc/shells`, then run:
+
+```sh
+chsh -s /run/current-system/sw/bin/fish
+```
+
+## 8. Restore network access and SSH
+
+Enroll in Tailscale if you use it:
+
+```sh
+sudo tailscale up
+```
+
+For NetBird, run `sudo netbird up` if needed. Authentication and network
+memberships are not stored in Nix. The managed `halo` SSH entry points to
+`10.1.3.246`; restore that DHCP reservation or update
+[`home/mani/programs/ssh.nix`](../home/mani/programs/ssh.nix) on your client and rebuild it.
+
+SSH is enabled, but the configuration does not install authorized keys. To allow
+the existing Bitwarden-held Halo identity to log in, run this once as `mani`:
+
+```sh
+install -d -m 0700 ~/.ssh
+cat ~/.ssh/halo.pub >> ~/.ssh/authorized_keys
+chmod 0600 ~/.ssh/authorized_keys
+sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+```
+
+On Nightfury, unlock Bitwarden and enable its SSH agent. After a reinstall,
+compare the new host fingerprint shown locally above before replacing the old
+client known-host entry. Then test `ssh halo` and `sudo -v` inside the session.
+
+For outgoing SSH from Halo, open Bitwarden, sign in, and enable its SSH agent.
+The configured socket is
+`~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock`.
+Restore disk-only private keys separately; the dotfiles supply only public keys.
+
+## 9. Set up models when needed
+
+```sh
+systemctl status llama-swap --no-pager
+curl --fail http://127.0.0.1:9292/v1/models
+```
+
+llama-swap serves `http://halo:9292/v1` without authentication. TCP port 9292 is
+open on all interfaces, including the local network and Tailscale. No API key or
+secret file is needed. The initial model list is empty; installation does not
+download weights.
+
+Follow [Halo LLM gateway setup](halo-llm.md) to download models with Lemonade,
+register their absolute GGUF paths in `hosts/halo/llm.nix`, and rebuild.
+
+## 10. Apply later changes and recover if needed
+
+For routine changes:
+
+```sh
+cd ~/dotfiles
 sudo nixos-rebuild switch --flake ~/dotfiles#halo
 ```
 
-In Fish, `rebuild` applies the local host. From a configured
-[Nightfury](nightfury-bootstrap.md), `rebuild-halo` builds and activates on Halo
-over SSH and prompts for sudo authentication. Local configuration changes must
-be present in the checkout used for that rebuild. Reboot after kernel changes.
-If a new generation fails to boot, select the previous generation in systemd-boot;
-wrong or missing filesystem labels must be corrected from the live USB.
+This applies both the system and Home Manager configuration. In Fish, `rebuild`
+uses the local hostname to select Halo. Reboot after kernel changes.
+Use the explicit flake command instead of a bare `nixos-rebuild switch`, which
+would use the old installer configuration in `/etc/nixos`.
+
+From a configured [Nightfury](nightfury-bootstrap.md), `rebuild-halo` builds and
+activates on Halo over SSH and prompts for sudo authentication. It deploys the
+Nightfury checkout, so first ensure that checkout includes Halo's saved hardware
+and other configuration changes from this guide.
+
+If the new generation cannot boot, select the previous working generation in
+the systemd-boot menu (hold Space during startup to reveal it). From that system,
+correct the checkout, rerun the `boot` command from step 6, and reboot. Keep the
+installer USB and configuration backup available until the first successful
+boot; if no generation boots, use the USB to repair the installed configuration.

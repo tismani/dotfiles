@@ -96,6 +96,7 @@
   };
 
   environment.systemPackages = with pkgs; [
+    python3Packages.huggingface-hub # Hugging Face CLI (hf)
     vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     # Bitwarden is installed as a Flatpak instead (see flatpak.nix) — clipboard
     # copy is broken in the nixpkgs build.
