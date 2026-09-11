@@ -85,7 +85,8 @@
     isNormalUser = true;
     description = "mani";
     # video + render give the lemonade/NPU service user GPU device access.
-    extraGroups = [ "networkmanager" "wheel" "video" "render" ];
+    # netbird grants access to the hardened daemon's protected control socket.
+    extraGroups = [ "networkmanager" "netbird" "wheel" "video" "render" ];
   };
 
   # Install firefox.
@@ -112,15 +113,49 @@
 
   # List services that you want to enable:
 
-  # Enable the OpenSSH daemon.
-  services.openssh.enable = true;
+  # NetBird's embedded SSH server cannot switch local users when the daemon is
+  # unprivileged. Use the regular OpenSSH daemon for remote access instead.
+  services.openssh = {
+    enable = true;
+    settings = {
+      AllowUsers = [ "mani" ];
+      PermitRootLogin = "no";
+      PasswordAuthentication = true; # Temporary until mani has an authorized key.
+      KbdInteractiveAuthentication = false;
+    };
+  };
 
   services.tailscale.enable = true;
 
   services.netbird = {
-    enable = true;
     ui.enable = false;
+    clients.default = {
+      name = "netbird";
+      interface = "wt0";
+      port = 51820;
+      dir.state = "/var/lib/netbird";
+      hardened = true;
+
+      # The daemon runs as netbird, so use OpenSSH rather than NetBird's
+      # embedded server, which would need to switch into local accounts.
+      config = {
+        ServerSSHAllowed = false;
+        EnableSSHRoot = false;
+        EnableSSHSFTP = false;
+        EnableSSHLocalPortForwarding = false;
+        EnableSSHRemotePortForwarding = false;
+        DisableSSHAuth = false;
+      };
+    };
   };
+
+  # systemd-resolved integrates both overlay clients without openresolv's
+  # conflicting DNS forwarding. NixOS also configures NetworkManager to use it.
+  services.resolved.enable = true;
+
+  # NetBird policies are the access-control boundary for traffic arriving on
+  # the overlay. Any service listening on wt0 is reachable when policy allows.
+  networking.firewall.trustedInterfaces = [ "wt0" ];
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
