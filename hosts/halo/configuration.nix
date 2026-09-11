@@ -87,6 +87,9 @@
     # video + render give the lemonade/NPU service user GPU device access.
     # netbird grants access to the hardened daemon's protected control socket.
     extraGroups = [ "networkmanager" "netbird" "wheel" "video" "render" ];
+    # Rootless Podman needs subordinate IDs for container users and groups.
+    subUidRanges = [{ startUid = 100000; count = 65536; }];
+    subGidRanges = [{ startGid = 100000; count = 65536; }];
   };
 
   # Install firefox.
@@ -95,6 +98,8 @@
     enable = true;
     binfmt = true;
   };
+
+  virtualisation.podman.enable = true;
 
   environment.systemPackages = with pkgs; [
     btop

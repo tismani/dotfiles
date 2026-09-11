@@ -8,6 +8,8 @@ let
   gemmaDir = "${modelCache}/models--unsloth--gemma-4-26B-A4B-it-GGUF/snapshots/c099eb48e663fd284577b04978a94ffccb261841";
 
   llamaServer = "${pkgs.llama-cpp-rocm}/bin/llama-server";
+  podman = "${pkgs.podman}/bin/podman";
+  halogenContainer = "llama-swap-halogen-qwen38-flash-next";
   commonArgs = ''
     --host 127.0.0.1 --port ''${PORT}
     --device ROCm0 --n-gpu-layers all
@@ -27,6 +29,7 @@ let
       maxInputTokens,
       apiBase ? "http://127.0.0.1:9292/v1",
       upstreamName ? name,
+      defaultReasoningEffort ? "none",
     }:
     {
       model_name = name;
@@ -34,14 +37,14 @@ let
         model = "openai/${upstreamName}";
         api_base = apiBase;
         api_key = "none";
-        # These llama.cpp extensions are valid for every local chat backend.
-        # LiteLLM otherwise removes reasoning_effort when drop_params is on.
+        # Preserve local reasoning extensions when drop_params is enabled.
         allowed_openai_params = [
           "reasoning_effort"
           "reasoning_format"
         ];
-        reasoning_effort = "none";
         timeout = 1800;
+      } // lib.optionalAttrs (defaultReasoningEffort != null) {
+        reasoning_effort = defaultReasoningEffort;
       };
       model_info = {
         mode = "chat";
@@ -146,6 +149,28 @@ let
           context = 262144;
         };
       };
+
+      "peonist-ai/halogen-qwen3.8-flash-next" = {
+        proxy = "http://127.0.0.1:8731";
+        checkEndpoint = "/health";
+        useModelName = "halogen-qwen3.8-flash-next";
+        cmd = ''
+          ${podman} run --rm --replace --name ${halogenContainer}
+          -p 8731:8731
+          --device /dev/kfd --device /dev/dri --group-add keep-groups
+          --security-opt seccomp=unconfined --ipc=host --ulimit memlock=-1:-1
+          -v /home/mani/halogen-models:/models:ro
+          ghcr.io/peonist-ai/halogen-flash-server:0.5.6
+        '';
+        cmdStop = "${podman} stop --ignore --time 30 ${halogenContainer}";
+        unloadTimeout = 45;
+        capabilities = {
+          "in" = [ "text" ];
+          out = [ "text" ];
+          tools = true;
+          context = 262144;
+        };
+      };
     };
 
     routing.router = {
@@ -158,6 +183,7 @@ let
           "Qwen3.8-27B-GGUF"
           "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF"
           "Gemma-4-26B-A4B-it-MTP-GGUF"
+          "peonist-ai/halogen-qwen3.8-flash-next"
         ];
       };
     };
@@ -246,6 +272,13 @@ in
           name = "Gemma-4-26B-A4B-it-MTP-GGUF";
           maxInputTokens = 262144;
         })
+        (litellmChatModel {
+          name = "peonist-ai/halogen-qwen3.8-flash-next";
+          maxInputTokens = 262144;
+          # Halogen accepts minimal through xhigh, but not "none". Preserve
+          # its native default unless the client requests an effort explicitly.
+          defaultReasoningEffort = null;
+        })
 
         (litellmChatModel {
           name = "Qwen3.6-35B-A3B-MTP-GGUF-lemonade";
@@ -293,11 +326,34 @@ in
     };
   };
 
-  # Create the API credential on Halo at activation time. Keeping the value
-  # out of this file also keeps it out of Git and the world-readable Nix store.
+  services.open-webui = {
+    enable = true;
+    host = "0.0.0.0";
+    port = 8080;
+    # The trusted NetBird interface already admits this port. Leave it closed
+    # on every other interface so the initial admin signup is not exposed.
+    openFirewall = false;
+    environmentFile = "/var/lib/litellm/open-webui-environment";
+    environment = {
+      SCARF_NO_ANALYTICS = "True";
+      DO_NOT_TRACK = "True";
+      ANONYMIZED_TELEMETRY = "False";
+      ENABLE_OLLAMA_API = "False";
+      ENABLE_OPENAI_API = "True";
+      OPENAI_API_BASE_URL = "http://127.0.0.1:4000/v1";
+    };
+  };
+
+  # Create the API credentials on Halo at activation time. Keeping the values
+  # out of this file also keeps them out of Git and the world-readable Nix
+  # store. Open WebUI receives the same key under the name its OpenAI client
+  # expects, plus a stable key for signing its own sessions.
   systemd.services.litellm-key = {
-    description = "Create the persistent LiteLLM master key";
-    before = [ "litellm.service" ];
+    description = "Create persistent LiteLLM and Open WebUI credentials";
+    before = [
+      "litellm.service"
+      "open-webui.service"
+    ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -306,11 +362,31 @@ in
     };
     script = ''
       keyFile=/var/lib/litellm/environment
+      webuiEnv=/var/lib/litellm/open-webui-environment
       if [ ! -s "$keyFile" ]; then
         key="$(${pkgs.openssl}/bin/openssl rand -hex 32)"
         ${pkgs.coreutils}/bin/printf 'LITELLM_MASTER_KEY=sk-%s\n' "$key" > "$keyFile"
       fi
       ${pkgs.coreutils}/bin/chmod 0600 "$keyFile"
+
+      litellmKey="$(${pkgs.gnused}/bin/sed -n 's/^LITELLM_MASTER_KEY=//p' "$keyFile")"
+      if [ -z "$litellmKey" ]; then
+        echo "LiteLLM environment file does not contain LITELLM_MASTER_KEY" >&2
+        exit 1
+      fi
+      webuiSecret=""
+      if [ -s "$webuiEnv" ]; then
+        webuiSecret="$(${pkgs.gnused}/bin/sed -n 's/^WEBUI_SECRET_KEY=//p' "$webuiEnv")"
+      fi
+      if [ -z "$webuiSecret" ]; then
+        webuiSecret="$(${pkgs.openssl}/bin/openssl rand -hex 32)"
+      fi
+
+      ${pkgs.coreutils}/bin/printf \
+        'OPENAI_API_KEY=%s\nWEBUI_SECRET_KEY=%s\n' \
+        "$litellmKey" "$webuiSecret" > "$webuiEnv.tmp"
+      ${pkgs.coreutils}/bin/chmod 0600 "$webuiEnv.tmp"
+      ${pkgs.coreutils}/bin/mv "$webuiEnv.tmp" "$webuiEnv"
     '';
   };
 
@@ -322,6 +398,19 @@ in
     after = [
       "litellm-key.service"
       "llama-swap.service"
+    ];
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+  };
+
+  systemd.services.open-webui = {
+    wants = [ "litellm.service" ];
+    requires = [ "litellm-key.service" ];
+    after = [
+      "litellm-key.service"
+      "litellm.service"
     ];
     serviceConfig = {
       Restart = "on-failure";

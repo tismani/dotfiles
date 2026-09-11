@@ -104,9 +104,10 @@ sudo sed -n 's/^LITELLM_MASTER_KEY=//p' /var/lib/litellm/environment
 ```
 
 OMP reads that value from `LITELLM_API_KEY` and uses `openai-models-list`
-discovery against LiteLLM. For Open WebUI and other clients, configure an
-OpenAI-compatible connection with URL `http://halo:4000/v1` and use the same
-key.
+discovery against LiteLLM. Open WebUI is connected automatically; its state,
+backup, and restore procedure is documented in [openwebui.md](openwebui.md).
+For other clients, configure an OpenAI-compatible connection with URL
+`http://halo:4000/v1` and use the same key.
 
 ## Verify the generated configuration
 
