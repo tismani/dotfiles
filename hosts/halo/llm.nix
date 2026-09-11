@@ -245,6 +245,9 @@ in
     environment = {
       HSA_ENABLE_SDMA = "0";
       HIP_VISIBLE_DEVICES = "0";
+      # Rootless Podman invokes the setuid newuidmap/newgidmap helpers by
+      # name.  systemd's restricted default PATH omits the NixOS wrappers.
+      PATH = lib.mkForce "/run/wrappers/bin:/run/current-system/sw/bin";
     };
   };
 
@@ -327,11 +330,11 @@ in
   };
 
   services.open-webui = {
-    enable = true;
+    enable = false;
     host = "0.0.0.0";
     port = 8080;
-    # The trusted NetBird interface already admits this port. Leave it closed
-    # on every other interface so the initial admin signup is not exposed.
+    # Keep this closed to remote interfaces so the initial admin signup is not
+    # exposed. Use a local connection or explicitly open a trusted interface.
     openFirewall = false;
     environmentFile = "/var/lib/litellm/open-webui-environment";
     environment = {

@@ -2,9 +2,9 @@
 
 LiteLLM is the primary OpenAI-compatible API at `http://halo:4000/v1`. It
 listens on `0.0.0.0:4000`, and the firewall opens TCP port 4000 on every
-interface, including the local network and both overlay networks. Use Halo's
-LAN, Tailscale, or NetBird address in place of `halo` when that hostname does
-not resolve. This is deliberately a database-free API deployment; LiteLLM's
+interface, including the local network and Tailscale. Use Halo's LAN or
+Tailscale address in place of `halo` when that hostname does not resolve. This
+is deliberately a database-free API deployment; LiteLLM's
 Admin UI and Playground login are not configured.
 
 llama-swap remains independently reachable at `http://halo:9292/v1`. Use that

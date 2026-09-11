@@ -279,59 +279,13 @@ Enroll in Tailscale if you use it:
 sudo tailscale up
 ```
 
-NetBird runs as the dedicated `netbird` system user. Its existing enrollment,
-management URL, and peer identity remain in `/var/lib/netbird`; they are not
-stored in Nix. On the first activation of the hardened service, systemd changes
-that directory's ownership without replacing its contents. Build successfully
-before activating this migration, and apply it from Halo's local desktop or an
-SSH session that can remain open while networking restarts:
+After connecting, verify normal LAN routing, DNS, and Tailscale:
 
 ```sh
-cd ~/dotfiles
-sudo nixos-rebuild build --flake ~/dotfiles#halo
-sudo nixos-rebuild switch --flake ~/dotfiles#halo
+ip route
+getent hosts example.com
+tailscale status
 ```
-
-Do not run `netbird logout`: it removes the existing peer enrollment. If this is
-a fresh installation with no saved enrollment, start it after activation as
-`mani` with `netbird up`. Membership in the new `netbird` group is only visible
-to a fresh login session, so log out and back in before using the unprivileged
-CLI. Use `sudo netbird up` only during recovery before that session refresh.
-
-Verify the daemon identity, capabilities, socket access, retained enrollment,
-and disabled embedded SSH listener:
-
-```sh
-systemctl show netbird -p User -p Group \
-  -p AmbientCapabilities -p CapabilityBoundingSet
-sudo ls -ld /var/lib/netbird /run/netbird
-id
-netbird status
-ss -lnt | grep -F ':22022 ' && echo 'unexpected NetBird SSH listener' || true
-```
-
-Expect `User=netbird`, `Group=netbird`, network administration/raw/BPF
-capabilities, a group-restricted `/run/netbird`, `netbird` in `id`'s group list,
-the original management server and peer identity in `netbird status`, and no
-listener on port 22022.
-
-DNS is handled by systemd-resolved instead of openresolv. After NetBird and
-Tailscale are connected, confirm the stub resolver and test one known public,
-Tailscale, and NetBird-managed name:
-
-```sh
-readlink -f /etc/resolv.conf
-resolvectl status
-resolvectl query example.com
-resolvectl query <tailscale-name>
-resolvectl query <netbird-name>
-journalctl -u netbird -u tailscaled -u systemd-resolved -b --no-pager
-```
-
-`/etc/resolv.conf` should resolve to
-`/run/systemd/resolve/stub-resolv.conf`. Replace the angle-bracket examples with
-names from the two overlays, and confirm the journal contains no continuing DNS
-configuration or resolution errors.
 
 The managed `halo` SSH entry points to `10.1.3.246`; restore that DHCP
 reservation or update
@@ -349,21 +303,15 @@ sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
 
 OpenSSH accepts only the `mani` account; root and keyboard-interactive logins are
 disabled. Password authentication remains enabled temporarily until an
-authorized key has been confirmed. NetBird's embedded SSH server is disabled,
-so connect with the normal OpenSSH client to `mani` on port 22.
+authorized key has been confirmed. Connect with the normal OpenSSH client to
+`mani` on port 22.
 
 On Nightfury, unlock Bitwarden and enable its SSH agent. After a reinstall,
 compare the new host fingerprint shown locally above before replacing the old
-client known-host entry. Then test `ssh mani@<halo-netbird-address>` and `sudo -v`
-inside the session. Once the authorized key works, follow up by setting
+client known-host entry. Then test `ssh halo` and `sudo -v` inside the session.
+Once the authorized key works, follow up by setting
 `PasswordAuthentication = false`; preferably also restrict OpenSSH to the
 overlay interfaces.
-
-The host firewall trusts `wt0`, so every current and future service listening on
-that interface is reachable from peers that NetBird dashboard policy permits.
-Keep those policies narrowly scoped. From an authorized NetBird peer, test
-ports 22 and 4000. Also confirm a peer in an unauthorized dashboard group cannot
-connect; local firewall trust is not a substitute for that policy check.
 
 For outgoing SSH from Halo, open Bitwarden, sign in, and enable its SSH agent.
 The configured socket is

@@ -53,8 +53,7 @@ sudo awk -F= '{ print $1 "=<redacted>" }' \
 
 Open WebUI is configured to listen on port 8080 and to use LiteLLM at
 `http://127.0.0.1:4000/v1`. It is reachable locally at
-`http://127.0.0.1:8080` and over Halo's trusted NetBird interface. Port 8080 is
-not opened on other firewall interfaces.
+`http://127.0.0.1:8080`; port 8080 is not opened on remote firewall interfaces.
 
 ## Create a complete backup
 
