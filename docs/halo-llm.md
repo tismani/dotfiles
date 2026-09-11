@@ -23,7 +23,7 @@ The gateway advertises these Lemonade model IDs:
 | `Gemma-4-26B-A4B-it-MTP-GGUF` | 262,144 | yes | external, 3 draft tokens |
 
 The Qwen models use static factor-4 YaRN from a 262,144-token original context.
-All four use symmetric Q4 KV caches, one sequence, AMD Flash Attention, direct
+All four use symmetric Q8 KV caches, one sequence, AMD Flash Attention, direct
 I/O, and full ROCm offload. The configured contexts are publisher ceilings, not
 claims about retrieval quality at the end of those windows. See the
 [Qwen3.6 model card](https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF),
@@ -160,7 +160,7 @@ journalctl -fu llama-swap
 ```
 
 For every model, verify the log reports the configured context, `ROCm0` layer
-offload, Q4 K and V caches, Flash Attention, and MTP initialization. Both Qwen
+offload, Q8 K and V caches, Flash Attention, and MTP initialization. Both Qwen
 models must also load `mmproj-F16.gguf` and report YaRN scaling. Nemotron must
 remain text-only. Gemma must load `mmproj-F16.gguf`, its separate
 `mtp-gemma-4-26B-A4B-it.gguf` draft, and Q4 draft K/V caches. Between requests,

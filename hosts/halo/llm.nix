@@ -14,7 +14,7 @@ let
     --host 127.0.0.1 --port ''${PORT}
     --device ROCm0 --n-gpu-layers all
     --flash-attn on
-    --cache-type-k q4_0 --cache-type-v q4_0
+    --cache-type-k q8_0 --cache-type-v q8_0
     --parallel 1
     --batch-size 2048 --ubatch-size 512
     --threads 16 --threads-batch 16
