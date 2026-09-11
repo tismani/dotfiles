@@ -361,10 +361,9 @@ overlay interfaces.
 
 The host firewall trusts `wt0`, so every current and future service listening on
 that interface is reachable from peers that NetBird dashboard policy permits.
-Keep those policies narrowly scoped. From an authorized NetBird peer, test port
-22 and a representative listening port other than 9292 or 13305. Also confirm a
-peer in an unauthorized dashboard group cannot connect; local firewall trust is
-not a substitute for that policy check.
+Keep those policies narrowly scoped. From an authorized NetBird peer, test
+ports 22 and 4000. Also confirm a peer in an unauthorized dashboard group cannot
+connect; local firewall trust is not a substitute for that policy check.
 
 For outgoing SSH from Halo, open Bitwarden, sign in, and enable its SSH agent.
 The configured socket is
@@ -374,14 +373,17 @@ Restore disk-only private keys separately; the dotfiles supply only public keys.
 ## 9. Set up models when needed
 
 ```sh
-systemctl status llama-swap --no-pager
-curl --fail http://127.0.0.1:9292/v1/models
+systemctl status llama-swap litellm --no-pager
+sudo sed -n 's/^LITELLM_MASTER_KEY=//p' /var/lib/litellm/environment
 ```
 
-llama-swap serves `http://halo:9292/v1` without authentication. TCP port 9292 is
-open on all interfaces, including the local network and Tailscale. No API key or
-secret file is needed. The configured Qwen3.6, Qwen3.8, Nemotron, and Gemma GGUF
-models load on demand; llama-swap keeps only one of them resident at a time.
+LiteLLM serves the primary `http://halo:4000/v1` endpoint using a persistent
+master key generated on first activation. Retrieve it locally with
+`sudo sed -n 's/^LITELLM_MASTER_KEY=//p' /var/lib/litellm/environment`.
+llama-swap remains directly available at `http://halo:9292/v1` as a fallback.
+Both ports are open on all interfaces, including the local network and overlay
+networks. The configured Qwen3.6, Qwen3.8, Nemotron, and Gemma GGUF models load
+on demand; llama-swap keeps only one of them resident at a time.
 
 Follow [Halo LLM gateway setup](halo-llm.md) for cache ownership, model paths,
 and the post-deployment load and swap checks.

@@ -21,6 +21,34 @@ let
   '';
   qwenYarnArgs = "--rope-scaling yarn --rope-scale 4 --yarn-orig-ctx 262144";
 
+  litellmChatModel =
+    {
+      name,
+      maxInputTokens,
+      apiBase ? "http://127.0.0.1:9292/v1",
+      upstreamName ? name,
+    }:
+    {
+      model_name = name;
+      litellm_params = {
+        model = "openai/${upstreamName}";
+        api_base = apiBase;
+        api_key = "none";
+        # These llama.cpp extensions are valid for every local chat backend.
+        # LiteLLM otherwise removes reasoning_effort when drop_params is on.
+        allowed_openai_params = [
+          "reasoning_effort"
+          "reasoning_format"
+        ];
+        reasoning_effort = "none";
+        timeout = 1800;
+      };
+      model_info = {
+        mode = "chat";
+        max_input_tokens = maxInputTokens;
+      };
+    };
+
   unloadLemonadeModels = pkgs.writeShellScript "unload-lemonade-models" ''
     attempts=0
     until ${pkgs.lemonade}/bin/lemonade status >/dev/null 2>&1; do
@@ -149,7 +177,8 @@ in
 
     lemonade = {
       user = "mani";
-      # LiteLLM runs on another machine; this endpoint is unauthenticated.
+      # LiteLLM exposes the maintenance and TTS routes through its unified API.
+      # Keep Lemonade reachable directly for diagnostics and recovery.
       host = "0.0.0.0";
       models = [
         "Qwen3.6-35B-A3B-MTP-GGUF"
@@ -190,6 +219,113 @@ in
     environment = {
       HSA_ENABLE_SDMA = "0";
       HIP_VISIBLE_DEVICES = "0";
+    };
+  };
+
+  services.litellm = {
+    enable = true;
+    host = "0.0.0.0";
+    port = 4000;
+    openFirewall = true;
+    environmentFile = "/var/lib/litellm/environment";
+    settings = {
+      model_list = [
+        (litellmChatModel {
+          name = "Qwen3.6-35B-A3B-MTP-GGUF";
+          maxInputTokens = 1010000;
+        })
+        (litellmChatModel {
+          name = "Qwen3.8-27B-GGUF";
+          maxInputTokens = 1000000;
+        })
+        (litellmChatModel {
+          name = "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF";
+          maxInputTokens = 1048576;
+        })
+        (litellmChatModel {
+          name = "Gemma-4-26B-A4B-it-MTP-GGUF";
+          maxInputTokens = 262144;
+        })
+
+        (litellmChatModel {
+          name = "Qwen3.6-35B-A3B-MTP-GGUF-lemonade";
+          upstreamName = "Qwen3.6-35B-A3B-MTP-GGUF";
+          maxInputTokens = 262144;
+          apiBase = "http://127.0.0.1:13305/api/v1";
+        })
+        (litellmChatModel {
+          name = "Qwen3.8-27B-GGUF-lemonade";
+          upstreamName = "Qwen3.8-27B-GGUF";
+          maxInputTokens = 262144;
+          apiBase = "http://127.0.0.1:13305/api/v1";
+        })
+        (litellmChatModel {
+          name = "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF-lemonade";
+          upstreamName = "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF";
+          maxInputTokens = 262144;
+          apiBase = "http://127.0.0.1:13305/api/v1";
+        })
+        (litellmChatModel {
+          name = "Gemma-4-26B-A4B-it-MTP-GGUF-lemonade";
+          upstreamName = "Gemma-4-26B-A4B-it-MTP-GGUF";
+          maxInputTokens = 262144;
+          apiBase = "http://127.0.0.1:13305/api/v1";
+        })
+        {
+          model_name = "kokoro-v1-lemonade";
+          litellm_params = {
+            model = "openai/kokoro-v1";
+            api_base = "http://127.0.0.1:13305/api/v1";
+            api_key = "none";
+            timeout = 600;
+          };
+          model_info.mode = "audio_speech";
+        }
+      ];
+
+      litellm_settings = {
+        drop_params = true;
+        request_timeout = 1800;
+        num_retries = 0;
+      };
+
+      general_settings.master_key = "os.environ/LITELLM_MASTER_KEY";
+    };
+  };
+
+  # Create the API credential on Halo at activation time. Keeping the value
+  # out of this file also keeps it out of Git and the world-readable Nix store.
+  systemd.services.litellm-key = {
+    description = "Create the persistent LiteLLM master key";
+    before = [ "litellm.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      StateDirectory = "litellm";
+      UMask = "0077";
+    };
+    script = ''
+      keyFile=/var/lib/litellm/environment
+      if [ ! -s "$keyFile" ]; then
+        key="$(${pkgs.openssl}/bin/openssl rand -hex 32)"
+        ${pkgs.coreutils}/bin/printf 'LITELLM_MASTER_KEY=sk-%s\n' "$key" > "$keyFile"
+      fi
+      ${pkgs.coreutils}/bin/chmod 0600 "$keyFile"
+    '';
+  };
+
+  # The proxy should come up with its local upstream, but llama-swap remains a
+  # separately reachable fallback if LiteLLM itself is unavailable.
+  systemd.services.litellm = {
+    wants = [ "llama-swap.service" ];
+    requires = [ "litellm-key.service" ];
+    after = [
+      "litellm-key.service"
+      "llama-swap.service"
+    ];
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = 5;
     };
   };
 

@@ -1,9 +1,15 @@
 # Halo LLM gateway
 
-llama-swap exposes an unauthenticated OpenAI-compatible API at
-`http://halo:9292/v1`. It listens on `0.0.0.0:9292`; the firewall opens TCP port
-9292 on all interfaces, including the local network and Tailscale. Use Halo's
-LAN IP in place of `halo` if the hostname does not resolve locally.
+LiteLLM is the primary OpenAI-compatible API at `http://halo:4000/v1`. It
+listens on `0.0.0.0:4000`, and the firewall opens TCP port 4000 on every
+interface, including the local network and both overlay networks. Use Halo's
+LAN, Tailscale, or NetBird address in place of `halo` when that hostname does
+not resolve. This is deliberately a database-free API deployment; LiteLLM's
+Admin UI and Playground login are not configured.
+
+llama-swap remains independently reachable at `http://halo:9292/v1`. Use that
+direct endpoint if LiteLLM is unavailable or when diagnosing the inference
+backend. Lemonade remains directly reachable on port 13305 for maintenance.
 
 ## Registered models
 
@@ -33,8 +39,8 @@ and million-token KV allocation are not prematurely killed.
 ## Model ownership
 
 Lemonade remains enabled on `0.0.0.0:13305` for listing, downloading, and
-maintaining its cache from the separate LiteLLM host. TCP port 13305 is open on
-all interfaces and the endpoint has no API key, just like llama-swap. Its
+maintaining its cache. TCP port 13305 is open on all interfaces and the endpoint
+has no API key, just like llama-swap. Its
 declarative model list keeps all four weights downloaded; download Gemma
 manually with the command below before rebuilding so the model-sync service has
 nothing to fetch. There is no boot preload service.
@@ -82,7 +88,7 @@ Rebuild Halo to generate the llama-swap YAML and systemd units:
 
 ```sh
 sudo nixos-rebuild switch --flake ~/dotfiles#halo
-systemctl status lemond llama-swap --no-pager
+systemctl status lemond llama-swap litellm --no-pager
 systemctl status lemonade-preload --no-pager
 lemonade status --json
 ```
@@ -90,9 +96,17 @@ lemonade status --json
 `lemonade-preload` should report that the unit does not exist. Lemonade's status
 must show no loaded model after llama-swap starts.
 
-OMP uses `auth: none` and `openai-models-list` discovery. For Open WebUI,
-configure an OpenAI-compatible connection with URL `http://halo:9292/v1` and
-leave the API key blank.
+The first activation generates a persistent LiteLLM master key outside the Nix
+store. Read it locally, then use the value as the Bearer/API key in clients:
+
+```sh
+sudo sed -n 's/^LITELLM_MASTER_KEY=//p' /var/lib/litellm/environment
+```
+
+OMP reads that value from `LITELLM_API_KEY` and uses `openai-models-list`
+discovery against LiteLLM. For Open WebUI and other clients, configure an
+OpenAI-compatible connection with URL `http://halo:4000/v1` and use the same
+key.
 
 ## Verify the generated configuration
 
@@ -132,7 +146,7 @@ for model in \
 do
   curl --fail --silent http://127.0.0.1:9292/v1/chat/completions \
     -H 'Content-Type: application/json' \
-    -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with OK.\"}],\"max_tokens\":8}" \
+    -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with OK.\"}],\"max_tokens\":8,\"reasoning_effort\":\"none\"}" \
     | jq -r '.choices[0].message.content'
   pgrep -af llama-server
 done
@@ -164,16 +178,33 @@ An allocation failure is a deployment failure. Do not silently lower a declared
 context; investigate memory availability or change the advertised contract
 explicitly.
 
-## Remote LiteLLM
+## LiteLLM unified endpoint
 
-[`config.yml`](../config.yml) defines the four preferred llama-swap routes, four
+[`hosts/halo/llm.nix`](../hosts/halo/llm.nix) configures LiteLLM through the
+native NixOS module. It defines the four preferred llama-swap routes, four
 explicit `-lemonade` maintenance routes, and the cached `kokoro-v1` Lemonade TTS
-route. Copy it to the machine running LiteLLM, replace `halo` with Halo's LAN or
-Tailscale address if that hostname does not resolve there, and set
-`LITELLM_MASTER_KEY` before starting the proxy.
+route. No external YAML file or database is required. The `litellm-key` oneshot
+service generates the master key on first activation and preserves it in
+`/var/lib/litellm/environment`; it is never written to Git or the Nix store.
+Chat routes default to `reasoning_effort: none` so clients that only display
+`message.content` do not appear blank. Clients can override `reasoning_effort`
+or `reasoning_format` per request when they support separate reasoning output.
+
+Verify the unified model catalog and a completion after each deployment:
+
+```sh
+curl --fail --silent http://127.0.0.1:4000/v1/models \
+  -H "Authorization: Bearer $LITELLM_API_KEY" | jq -r '.data[].id' | sort
+curl --fail --silent http://127.0.0.1:4000/v1/chat/completions \
+  -H "Authorization: Bearer $LITELLM_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"Qwen3.6-35B-A3B-MTP-GGUF","messages":[{"role":"user","content":"Reply with OK."}],"max_tokens":8,"reasoning_effort":"none"}' \
+  | jq -r '.choices[0].message.content'
+```
 
 The unsuffixed model IDs should be used normally. Direct `-lemonade` requests
 bypass llama-swap's one-model ownership, so first unload the active llama-swap
 model or reserve those aliases for diagnostics. Both Halo upstream ports are
 unauthenticated; restrict them at the network layer if the connected network is
-not fully trusted.
+not fully trusted. LiteLLM itself requires its generated key on every API
+request, but traffic is plain HTTP; use a trusted LAN or encrypted overlay.
