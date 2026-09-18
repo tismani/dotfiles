@@ -131,7 +131,7 @@ let
           --device /dev/kfd --device /dev/dri --group-add keep-groups
           --security-opt seccomp=unconfined --ipc=host --ulimit memlock=-1:-1
           -v /home/mani/halogen-models:/models:ro
-          ghcr.io/peonist-ai/halogen-flash-server:0.5.6
+          ghcr.io/peonist-ai/halogen-flash-server:0.11.8
         '';
         cmdStop = "${podman} stop --ignore --time 30 ${halogenContainer}";
         unloadTimeout = 45;
