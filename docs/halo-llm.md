@@ -217,11 +217,13 @@ curl --fail --silent http://127.0.0.1:4000/v1/models \
 curl --fail --silent http://127.0.0.1:4000/v1/chat/completions \
   -H "Authorization: Bearer $LITELLM_API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"Qwen3.6-35B-A3B-MTP-GGUF","messages":[{"role":"user","content":"Reply with OK."}],"max_tokens":8,"reasoning_effort":"none"}' \
+  -d '{"model":"llamacpp/Qwen3.6-35B-A3B-MTP-GGUF","messages":[{"role":"user","content":"Reply with OK."}],"max_tokens":8,"reasoning_effort":"none"}' \
   | jq -r '.choices[0].message.content'
 ```
 
-The unsuffixed model IDs should be used normally. Direct `-lemonade` requests
+The LiteLLM-facing llama.cpp model IDs use the `llamacpp/` prefix, while the
+Halogen route is `peonist-ai/qwen3.8-flash-next`. The underlying transport
+remains OpenAI-compatible. Direct `-lemonade` requests
 bypass llama-swap's one-model ownership, so first unload the active llama-swap
 model or reserve those aliases for diagnostics. Both Halo upstream ports are
 unauthenticated; restrict them at the network layer if the connected network is
