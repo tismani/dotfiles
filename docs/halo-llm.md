@@ -31,10 +31,28 @@ claims about retrieval quality at the end of those windows. See the
 [Nemotron model card](https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF),
 and [Gemma 4 model card](https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF).
 
-The four models are members of one explicit exclusive llama-swap group. A
-request for a different ID terminates the running backend before the new one is
-allocated. The health-check timeout is 30 minutes so direct-I/O model loading
-and million-token KV allocation are not prematurely killed.
+llama-swap uses its matrix router to control residency. Halogen is permitted
+only as a singleton, so loading it evicts every GGUF backend and requesting a
+GGUF backend while it is resident stops the Halogen container first. The GGUF
+models may run alone or in any of these six pairs:
+
+- Qwen3.6 + Qwen3.8
+- Qwen3.6 + Nemotron
+- Qwen3.6 + Gemma
+- Qwen3.8 + Nemotron
+- Qwen3.8 + Gemma
+- Nemotron + Gemma
+
+This means the maximum of two loaded models applies only to the four GGUF
+models; Halogen is never resident concurrently with another model. Requesting
+a third GGUF model evicts one member of the current pair. The matrix uses equal
+default eviction costs, so ties follow the pair definition order rather than a
+model-specific preference.
+
+The reduced-memory Halogen settings tested during diagnosis remain experimental
+and are not part of the production Podman command below. The health-check
+timeout is 30 minutes so direct-I/O model loading and million-token KV
+allocation are not prematurely killed.
 
 ## Model ownership
 

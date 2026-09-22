@@ -145,17 +145,19 @@ let
     };
 
     routing.router = {
-      use = "group";
-      settings.groups."large-gguf" = {
-        swap = true;
-        exclusive = true;
-        members = [
-          "Qwen3.6-35B-A3B-MTP-GGUF"
-          "Qwen3.8-27B-GGUF"
-          "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF"
-          "Gemma-4-26B-A4B-it-MTP-GGUF"
-          "peonist-ai/halogen-qwen3.8-flash-next"
-        ];
+      use = "matrix";
+      settings.matrix = {
+        vars = {
+          h = "peonist-ai/halogen-qwen3.8-flash-next";
+          q36 = "Qwen3.6-35B-A3B-MTP-GGUF";
+          q38 = "Qwen3.8-27B-GGUF";
+          n = "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF";
+          g = "Gemma-4-26B-A4B-it-MTP-GGUF";
+        };
+        sets = {
+          halogen = "h";
+          "gguf-pairs" = "(q36 & q38) | (q36 & n) | (q36 & g) | (q38 & n) | (q38 & g) | (n & g)";
+        };
       };
     };
   };
