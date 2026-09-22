@@ -21,7 +21,7 @@ model_list:
       reasoning_effort: none
     model_info:
       mode: chat
-      max_input_tokens: 1010000
+      max_input_tokens: 262144
 
   - model_name: Qwen3.8-27B-GGUF
     litellm_params:
@@ -35,7 +35,7 @@ model_list:
       reasoning_effort: none
     model_info:
       mode: chat
-      max_input_tokens: 1000000
+      max_input_tokens: 262144
 
   - model_name: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
     litellm_params:
@@ -49,7 +49,7 @@ model_list:
       reasoning_effort: none
     model_info:
       mode: chat
-      max_input_tokens: 1048576
+      max_input_tokens: 262144
 
   - model_name: Gemma-4-26B-A4B-it-MTP-GGUF
     litellm_params:

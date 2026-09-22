@@ -49,7 +49,7 @@ let
         cmd = ''
           ${llamaServer}
           ${commonArgs}
-          --ctx-size 1010000
+          --ctx-size 262144
           ${qwenYarnArgs}
           --model ${qwen36Dir}/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf
           --mmproj ${qwen36Dir}/mmproj-F16.gguf
@@ -68,7 +68,7 @@ let
         cmd = ''
           ${llamaServer}
           ${commonArgs}
-          --ctx-size 1000000
+          --ctx-size 262144
           ${qwenYarnArgs}
           --model ${qwen38Dir}/Qwen3.8-27B-UD-Q4_K_XL.gguf
           --mmproj ${qwen38Dir}/mmproj-F16.gguf
@@ -129,9 +129,9 @@ let
           ${podman} run --rm --replace --name ${halogenContainer}
           -p 8731:8731
           --device /dev/kfd --device /dev/dri --group-add keep-groups
-          --security-opt seccomp=unconfined --ipc=host --ulimit memlock=-1:-1
-          -v /home/mani/halogen-models:/models:ro
-          ghcr.io/peonist-ai/halogen-flash-server:0.11.8
+          --ipc=host --ulimit memlock=-1:-1
+          -v /home/mani/halogen-models:/models
+          ghcr.io/peonist-ai/halogen-flash-server:0.11.10
         '';
         cmdStop = "${podman} stop --ignore --time 30 ${halogenContainer}";
         unloadTimeout = 45;
