@@ -211,6 +211,7 @@
       "uBlock Origin Lite" = 6745342698;
       "Infuse" = 1136220934;
       "Parachute Backup"= 6748614170;
+      "Termix - Remote Access" = 6752672071;
     };
   };
 
