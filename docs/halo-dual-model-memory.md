@@ -1,7 +1,7 @@
 # Halo dual-model memory evaluation
 
-Measurement date: 2026-09-22. This was a read-only runtime evaluation; no Nix
-configuration was activated and no checked-in configuration was changed.
+Initial GGUF measurement date: 2026-09-22. Qwen Image concurrency validation:
+2026-09-27. No Nix configuration was activated during either evaluation.
 
 ## Observed platform
 
@@ -28,6 +28,7 @@ GGUF file sizes alone.
 | Qwen3.8 | 17.56 GB | 0.93 GB projector; embedded MTP | ~29.4 GiB |
 | Nemotron | 25.51 GB | embedded MTP; no projector | ~26.4 GiB |
 | Gemma 4 | 16.95 GB | 1.19 GB projector + 0.46 GB external MTP | ~23.6 GiB |
+| Qwen Image 2.1 | 28,489 MiB resident weights | no external sidecar | ~32.04 GiB incremental peak |
 
 The deployed Nemotron route still uses a 1,048,576-token context. It was also
 loaded separately at 262,144 tokens for this comparison; that test loaded and
@@ -55,12 +56,17 @@ headroom. “Margin” is budget minus peak estimate.
 | Qwen3.8 + Nemotron | 43.07 GB | ~63.8 GiB | ~23.2 GiB | safe by estimate |
 | Qwen3.8 + Gemma 4 | 34.51 GB | ~61.0 GiB | ~26.0 GiB | safe by estimate |
 | Nemotron + Gemma 4 | 42.45 GB | ~58.0 GiB | ~29.0 GiB | safest by estimate |
+| Gemma 4 + Qwen Image 2.1 | 16.95 GB + 28,489 MiB resident | 55.16 GiB measured | 31.84 GiB | validated at 1024x1024 |
 | Qwen3.6 + Halogen | 22.85 GB + 68.0 GiB locked | not safe at defaults | not safe at defaults | do not claim |
 | Qwen3.8 + Halogen | 17.56 GB + 68.0 GiB locked | not safe at defaults | not safe at defaults | do not claim |
 | Nemotron + Halogen | 25.51 GB + 68.0 GiB locked | not safe at defaults | not safe at defaults | do not claim |
 | Gemma 4 + Halogen | 16.95 GB + 68.0 GiB locked | ~50.3 GiB GTT reduced | ~2.6 GiB contiguous RAM | experimental only |
 
-Halogen is separate from the GGUF measurements. Its Podman image is 3.55 GB
+### Historical Halogen experiment
+
+Halogen has since been removed from the configured model catalog in favor of
+Gufo's Qwen3.8 Flash-Next route. It was separate from the GGUF measurements.
+Its Podman image was 3.55 GB
 and the model directory is 123 GB. The exact production command failed alongside
 Gemma: it pinned 68.0 GiB of weights, requested a 524,288-position pool, and
 hit HIP/device OOM after 22.4 GiB of allocations. It also caused about 111 MiB
@@ -85,16 +91,25 @@ temporary servers) used about 80.1 GiB total GTT; the two temporary processes
 accounted for approximately 27.1 and 29.4 GiB. The temporary processes were
 stopped afterward.
 
+On 2026-09-27, the managed Gemma server was probed before and after a temporary
+Gufo Qwen Image 2.1 server generated a `1024x1024` image in 90.1 seconds. The
+image backend reported 28,489 MiB of resident weights. Relative to the
+Gemma-only starting sample, Qwen Image added about 32.04 GiB at peak, and total
+GTT peaked at 55.16 GiB. Across 96 one-second samples, host `MemAvailable`
+never fell below 63.65 GiB and swap did not grow from its 238,652 KiB starting
+use. Both Gemma probes returned `OK`; neither backend reported an allocation or
+ROCm error, and the kernel log contained no OOM, GPU reset, or page-fault event.
+The temporary Gufo process was stopped afterward, leaving managed Gemma
+resident.
+
+This validates only concurrent `1024x1024` text-to-image generation. Larger
+sizes and `/v1/images/edits` can have different peaks and remain unsupported as
+concurrent Gemma workloads until measured separately.
+
 ## Recommendation and follow-up
 
-The conservative choice is to permit one two-model GGUF group at a time, with
-Qwen3.6 + Qwen3.8 the best usefulness/safety compromise and Gemma + Nemotron
-the lowest estimated footprint. Do not advertise Halogen concurrency until its
-container is measured in the same way.
-
-If concurrency is desired, the next configuration change should split
-`large-gguf` into explicit non-exclusive groups and set every GGUF
-`capabilities.context` to `262144`. That change should be made only after
-deciding which measured pair is supported; it should not imply that all ten
-pairs, or any pair including Halogen, are supported. Rebuild both hosts as
-appropriate, but do not activate from this evaluation.
+Qwen Image may be paired only with Gemma, within the validated `1024x1024`
+generation boundary; all other Gufo routes remain singletons. Halogen is not
+part of the configured catalog; use Gufo's Qwen3.8 Flash-Next route instead.
+Rebuild Halo to verify matrix generation, but do not treat a build as
+authorization to activate the configuration.

@@ -10,6 +10,11 @@
     # Intentionally NOT following nixpkgs: the upstream overrides re-hash
     # against a different nixpkgs and every backend rebuilds from source.
     nix-amd-ai.url = "github:noamsto/nix-amd-ai";
+
+    # Native Strix Halo inference backend. Intentionally NOT following
+    # nixpkgs: Gufo pins the ROCm toolchain it qualifies and builds against.
+    gufo.url = "github:gufo-org/gufo";
+
     nix-darwin = {
       url = "github:nix-darwin/nix-darwin/master";
       inputs.nixpkgs.follows = "nixpkgs";
