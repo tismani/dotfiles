@@ -8,5 +8,6 @@
     ./ssh.nix
     ./helix.nix
     ./omp.nix
+    ./superfile.nix
   ];
 }

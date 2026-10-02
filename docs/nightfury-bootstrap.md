@@ -133,6 +133,7 @@ sudo darwin-rebuild switch --flake ~/dotfiles#nightfury
 
 The hostname should be `nightfury`. In Fish, `rebuild` applies the local host.
 Once [Halo's bootstrap](halo-bootstrap.md) and SSH setup are complete, `ssh halo`
-should work and `rebuild-halo` builds and activates on Halo over SSH. Its SSH
+should work and `rebuild-halo` rsyncs the local `~/dotfiles` to Halo and
+builds and activates it there. Its
 address is currently hard-coded to `10.1.3.246` in
 [`ssh.nix`](../home/mani/programs/ssh.nix); update it if Halo's address changes.

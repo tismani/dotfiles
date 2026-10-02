@@ -350,10 +350,11 @@ uses the local hostname to select Halo. Reboot after kernel changes.
 Use the explicit flake command instead of a bare `nixos-rebuild switch`, which
 would use the old installer configuration in `/etc/nixos`.
 
-From a configured [Nightfury](nightfury-bootstrap.md), `rebuild-halo` builds and
-activates on Halo over SSH and prompts for sudo authentication. It deploys the
-Nightfury checkout, so ensure it contains the intended configuration revision.
-The committed filesystem labels work for both local and remote rebuilds.
+From a configured [Nightfury](nightfury-bootstrap.md), `rebuild-halo` rsyncs the
+local `~/dotfiles` working tree to Halo, then runs the switch there, so the
+build happens on Halo itself. It deploys the working tree, including
+uncommitted changes; untracked files are skipped, so commit or push them to
+deploy. The committed filesystem labels work for local rebuilds.
 
 If the new generation cannot boot, select the previous working generation in
 the systemd-boot menu (hold Space during startup to reveal it). From that system,

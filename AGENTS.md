@@ -50,7 +50,7 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
   - halo: `nix build .#nixosConfigurations.halo.config.system.build.toplevel`
   - Shared-module edits (`modules/`, `home/`) → build both.
 - NEVER run activation (`darwin-rebuild switch`, `nixos-rebuild switch`, or the fish `rebuild`/`rebuild-halo` aliases) unless explicitly asked — it mutates the live machine.
-- Human workflow: fish `rebuild` (per-host switch, defined in `modules/programs/fish.nix`); `rebuild-halo` (macOS to halo over SSH to `mani@halo`).
+- Human workflow: fish `rebuild` (per-host switch, defined in `modules/programs/fish.nix`); `rebuild-halo` (macOS: rsyncs `~/dotfiles` to halo, then builds and switches on halo itself).
 - `nix flake update` is NOT routine — keep the checked-in `flake.lock`.
 
 ## Conventions / landmines

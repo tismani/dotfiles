@@ -20,7 +20,11 @@
       then "sudo darwin-rebuild switch --flake ~/dotfiles"
       else "sudo nixos-rebuild switch --flake ~/dotfiles";
     } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
-      rebuild-halo = "nixos-rebuild switch --flake ~/dotfiles#halo --target-host mani@halo --build-host mani@halo --elevate=sudo --ask-elevate-password";
+      # Build on halo (not the macOS host): rsync the working tree, then switch.
+      # Builds what's in ~/dotfiles here, including uncommitted changes;
+      # untracked files are skipped, so commit or push them to deploy.
+      rebuild-halo =
+      "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@halo:~/dotfiles/ && ssh mani@halo 'sudo nixos-rebuild switch --flake ~/dotfiles#halo'";
     };
     interactiveShellInit = ''
       set fish_greeting # Disable greeting
@@ -35,6 +39,22 @@
           command kitten ssh $argv
         else
           command ssh $argv
+        end
+      end
+
+      # cd_on_quit: source the lastdir file after superfile exits so the
+      # shell changes to the last directory open in superfile.
+      function superfile
+        set os (uname -s)
+        if test "$os" = "Linux"
+          set spf_last_dir "$HOME/.local/state/superfile/lastdir"
+        else if test "$os" = "Darwin"
+          set spf_last_dir "$HOME/Library/Application Support/superfile/lastdir"
+        end
+        command superfile $argv
+        if test -f "$spf_last_dir"
+          source "$spf_last_dir"
+          rm -f -- "$spf_last_dir" >> /dev/null
         end
       end
 

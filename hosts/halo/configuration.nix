@@ -84,6 +84,7 @@
   users.users.mani = {
     isNormalUser = true;
     description = "mani";
+    shell = pkgs.fish;
     # video + render give the lemonade/NPU service user GPU device access.
     extraGroups = [ "networkmanager" "wheel" "video" "render" ];
     # Rootless Podman needs subordinate IDs for container users and groups.
