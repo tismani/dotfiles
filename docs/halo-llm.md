@@ -1,40 +1,67 @@
 # Halo LLM gateway
 
-LiteLLM is the primary OpenAI-compatible API at `http://halo:4000/v1`. It
-listens on `0.0.0.0:4000`, and the firewall opens TCP port 4000 on every
-interface, including the local network and Tailscale. Use Halo's LAN or
-Tailscale address in place of `halo` when that hostname does not resolve. This
-is deliberately a database-free API deployment; LiteLLM's
-Admin UI and Playground login are not configured.
+llama-swap is Halo's OpenAI-compatible API at `http://halo:9292/v1`. It loads
+the configured backends on demand and is reachable over the LAN and Tailscale.
+Lemonade remains directly reachable on port 13305 for NPU/TTS maintenance.
+MiniMax H3 is the one exception to the `/v1` prefix: llama-swap v249 reaches
+its video API through `/upstream/minimax-h3/v1`.
 
-llama-swap remains independently reachable at `http://halo:9292/v1`. Use that
-direct endpoint if LiteLLM is unavailable or when diagnosing the inference
-backend. Lemonade remains directly reachable on port 13305 for maintenance.
+LiteLLM does **not** run on Halo. A Docker container on a separate machine reads
+the repository's [`litellm-config.yaml`](../litellm-config.yaml), listens on
+port 4000 there, and forwards model requests over the LAN to llama-swap at
+`http://10.1.3.246:9292/v1`. OMP also connects directly to llama-swap rather
+than through LiteLLM.
 
 ## Registered models
 
-The gateway advertises these Lemonade model IDs:
+| Model ID | Backend / API | Context | Input → output | Speculation |
+| --- | --- | ---: | --- | --- |
+| `Qwen3.6-35B-A3B-MTP-GGUF` | llama.cpp chat | 1,010,000 | text/image → text | embedded MTP, 2 tokens |
+| `Qwen3.8-27B-GGUF` | llama.cpp chat | 1,000,000 | text/image → text | embedded MTP, 3 tokens |
+| `gufo/Qwen3.8-27B-DFlash2` | Gufo chat | 262,144 | text/image → text | adaptive DFlash2 |
+| `gufo/Qwen3.8-Flash-Next-MTP` | Gufo chat | 262,144 | text/image → text | adaptive MTP |
+| `gufo/DeepSeek-V4-Flash-DSpark` | Gufo chat | 262,144 | text → text | DSpark |
+| `gufo/Qwen3-ASR-1.7B` | Gufo transcription | 1,024/chunk | audio → text | — |
+| `gufo/Qwen3-TTS-12Hz-1.7B-Base` | Gufo speech | 4,096 | text/reference audio → audio | — |
+| `gufo/Qwen3-TTS-12Hz-1.7B-CustomVoice` | Gufo speech | 4,096 | text → audio | — |
+| `gufo/Qwen3-TTS-12Hz-1.7B-VoiceDesign` | Gufo speech | 4,096 | text → audio | — |
+| `gufo/Qwen-Image-2.1` | Gufo images | 16,384 encoder tokens | text/image → image | — |
+| `minimax-h3` (`gufo/MiniMax-H3` in LiteLLM) | Gufo video | 4,096 prompt tokens | text → video | — |
+| `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF` | llama.cpp chat | 1,048,576 | text → text | embedded MTP, 3 tokens |
+| `Gemma-4-26B-A4B-it-MTP-GGUF` | llama.cpp chat | 262,144 | text/image → text | external MTP, 3 tokens |
 
-| Model ID | Context | Vision | MTP |
-| --- | ---: | :---: | --- |
-| `Qwen3.6-35B-A3B-MTP-GGUF` | 1,010,000 | yes | embedded, 2 draft tokens |
-| `Qwen3.8-27B-GGUF` | 1,000,000 | yes | embedded, 3 draft tokens |
-| `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF` | 1,048,576 | no | embedded, 3 draft tokens |
-| `Gemma-4-26B-A4B-it-MTP-GGUF` | 262,144 | yes | external, 3 draft tokens |
+The llama.cpp Qwen models use static factor-4 YaRN from a 262,144-token
+original context. The configured contexts are publisher ceilings, not claims
+about retrieval quality at the end of those windows. Gufo uses Qwen3.8's native
+262,144-token context, one preallocated request session, and the same default
+sampler as llama.cpp: temperature 0.8, top-k 40, top-p 0.95, and min-p 0.05.
+The Qwen3.8 DFlash2 comparison route explicitly defaults thinking off; a client
+can enable it with `reasoning_effort` on an individual request. Flash-Next is
+left at Gufo's model-template default: thinking on, `xhigh` effort, and prior
+reasoning preserved. DeepSeek is likewise left at its template default.
 
-The Qwen models use static factor-4 YaRN from a 262,144-token original context.
-All four use symmetric Q8 KV caches, one sequence, AMD Flash Attention, direct
-I/O, and full ROCm offload. The configured contexts are publisher ceilings, not
-claims about retrieval quality at the end of those windows. See the
+See the [pinned Gufo model guides](https://github.com/gufo-org/gufo/tree/982bffea86fd5568759a420c4808c5b2123161c8/docs/models),
+[pinned Gufo server contract](https://github.com/gufo-org/gufo/blob/982bffea86fd5568759a420c4808c5b2123161c8/docs/SERVER.md),
 [Qwen3.6 model card](https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF),
 [Qwen3.8 model card](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF),
 [Nemotron model card](https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF),
 and [Gemma 4 model card](https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF).
 
-llama-swap uses its matrix router to control residency. Halogen is permitted
-only as a singleton, so loading it evicts every GGUF backend and requesting a
-GGUF backend while it is resident stops the Halogen container first. The GGUF
-models may run alone or in any of these six pairs:
+## Residency
+
+llama-swap's matrix router gives every Gufo route except Qwen Image its own
+singleton residency set. Qwen Image may remain resident only with Gemma 4;
+loading any other Gufo route evicts both. Likewise, requesting any llama.cpp
+backend other than Gemma while Qwen Image is resident stops Qwen Image first.
+
+The Gemma 4 + Qwen Image pair was validated with `1024x1024` text-to-image
+generation. It peaked at 55.16 GiB total GTT, left at least 63.65 GiB of host
+memory available, did not grow swap, and left Gemma responsive. This is not a
+memory-safety claim for larger images or image editing; validate those workloads
+separately before expanding the supported boundary. See
+[`halo-dual-model-memory.md`](halo-dual-model-memory.md) for the measurements.
+
+The four llama.cpp models may run alone or in any of these six pairs:
 
 - Qwen3.6 + Qwen3.8
 - Qwen3.6 + Nemotron
@@ -43,47 +70,168 @@ models may run alone or in any of these six pairs:
 - Qwen3.8 + Gemma
 - Nemotron + Gemma
 
-This means the maximum of two loaded models applies only to the four GGUF
-models; Halogen is never resident concurrently with another model. Requesting
-a third GGUF model evicts one member of the current pair. The matrix uses equal
-default eviction costs, so ties follow the pair definition order rather than a
-model-specific preference.
+Requesting a third llama.cpp model evicts one member of the current pair. The
+matrix uses equal default eviction costs, so ties follow pair definition order
+rather than a model-specific preference. The 30-minute health-check timeout
+allows for direct-I/O loading and large KV allocations.
 
-The reduced-memory Halogen settings tested during diagnosis remain experimental
-and are not part of the production Podman command below. The health-check
-timeout is 30 minutes so direct-I/O model loading and million-token KV
-allocation are not prematurely killed.
+## Model ownership and runtime prerequisites
 
-## Model ownership
-
-Lemonade remains enabled on `0.0.0.0:13305` for listing, downloading, and
-maintaining its cache. TCP port 13305 is open on all interfaces and the endpoint
-has no API key, just like llama-swap. Its
-declarative model list keeps all four weights downloaded; download Gemma
-manually with the command below before rebuilding so the model-sync service has
-nothing to fetch. There is no boot preload service.
-Before llama-swap starts, its systemd unit waits for `lemond` and runs
-`lemonade unload`, ensuring Lemonade does not retain a model in system/GPU
-memory.
-
-Do not run `lemonade load` while a llama-swap backend is resident. If Lemonade
-was used for an interactive model test, return ownership to the gateway with:
+Lemonade remains enabled on `0.0.0.0:13305` for model maintenance. Before
+llama-swap starts, its systemd unit waits for `lemond` and runs `lemonade
+unload`, ensuring Lemonade does not retain a model in system/GPU memory. Do not
+run `lemonade load` while a llama-swap backend is resident. After an interactive
+Lemonade test, return ownership with:
 
 ```sh
 lemonade unload
 sudo systemctl restart llama-swap
 ```
 
-Lemonade cache updates may create a new Hugging Face snapshot directory. The
-llama-swap paths in `hosts/halo/llm.nix` are deliberately absolute runtime
-strings, so after updating weights verify the snapshot paths and update the Nix
-file if the old snapshot was removed. They are not copied into the Nix store.
+Gufo's flake input deliberately keeps its own pinned nixpkgs/ROCm toolchain.
+Halo must provide the existing gfx1151 AMDGPU/ROCm setup, `/dev/kfd` and
+`/dev/dri` access, and membership in the `video` and `render` groups. The
+llama-swap unit already supplies those supplementary groups and the unlimited
+memlock setting. After activation, `gufo diagnose` checks the effective driver,
+device, group, and runtime state.
 
-## Download the Gemma primary
+All model paths in `hosts/halo/llm.nix` are runtime paths into mani's Hugging
+Face cache. Weights are not copied into the Nix store. Cache updates can create
+new snapshot directories; if a pinned snapshot is removed, update the runtime
+path deliberately rather than relying on a moving symlink.
 
-The Gemma projector and external MTP draft are already cached at revision
-`c099eb48e663fd284577b04978a94ffccb261841`. Download the missing 16.9 GB primary
-as `mani` before rebuilding:
+## Download every Gufo runtime model
+
+Run these as `mani` on Halo. They use Hugging Face's normal cache layout,
+which is exactly what `hosts/halo/llm.nix` references; do not use `--local-dir`.
+The commits are immutable. Gufo's TTS guide does not pin commits, so the three
+TTS commands pin the repository heads selected when this configuration was
+written.
+
+These downloads are large. DeepSeek's target alone is 80.76 GiB, Qwen Image is
+about 33.1 GB, and MiniMax H3 is also substantial. MiniMax H3 is gated: accept
+its license on Hugging Face and run `hf auth login` before its command. Qwen
+Image uses the separate, non-commercial Qwen Research License.
+
+### Qwen3.8 27B target, vision projector, and DFlash2 sidecar
+
+```sh
+hf download unsloth/Qwen3.8-27B-GGUF \
+  --revision 4ca720788d1e01f1bff70c033e0d0028fd02e502 \
+  --include Qwen3.8-27B-UD-Q4_K_XL.gguf mmproj-BF16.gguf
+
+hf download z-lab/Qwen3.8-27B-DFlash2-GGUF \
+  Qwen3.8-27B-DFlash2-Q4_K_M.gguf \
+  --revision 2d9571f8ce46e151f61c6499c99dee6079e1d610
+```
+
+The existing `mmproj-F16.gguf` is still used by llama.cpp and remains
+untouched.
+
+### Qwen3.8 Flash-Next target shards, vision projector, and MTP sidecar
+
+```sh
+hf download unsloth/Qwen3.8-Flash-Next-GGUF \
+  --revision 38bb39ee97821de2c9009abb7e93950eec396e66 \
+  --include 'UD-Q4_K_XL/*'
+
+hf download unsloth/Qwen3.8-Flash-Next-GGUF \
+  MTP/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf \
+  mmproj-BF16.gguf \
+  --revision 38bb39ee97821de2c9009abb7e93950eec396e66
+```
+
+Gufo is given shard 1; it discovers the remaining three target shards. The
+BF16 projector and shared-Q8 MTP predictor are required by this configured
+vision/speculative route. Keep the shard download separate: current `hf`
+versions ignore `--include` whenever explicit filenames are also supplied.
+
+### DeepSeek V4 Flash target and DSpark sidecar
+
+The target and DSpark files are two snapshots of the same Hugging Face
+repository, which is why they use separate commands and revisions:
+
+```sh
+hf download antirez/deepseek-v4-gguf \
+  DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf \
+  --revision 1cd7b564460821938add0475a60b942c409295e0
+
+hf download antirez/deepseek-v4-gguf \
+  DeepSeek-V4-Flash-DSpark-support-0731.gguf \
+  --revision e7f04037032990db0346398d249baf9fb9df1ccc
+```
+
+### Qwen3 ASR and all supported Qwen3 TTS variants
+
+Gufo supports ASR 1.7B and the 12 Hz TTS 1.7B Base, CustomVoice, and
+VoiceDesign checkpoints. It does not support the 0.6B, 25 Hz, or audio-GGUF
+variants.
+
+```sh
+hf download Qwen/Qwen3-ASR-1.7B \
+  --revision 7278e1e70fe206f11671096ffdd38061171dd6e5
+
+hf download Qwen/Qwen3-TTS-12Hz-1.7B-Base \
+  --revision fd4b254389122332181a7c3db7f27e918eec64e3
+
+hf download Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice \
+  --revision 0c0e3051f131929182e2c023b9537f8b1c68adfe
+
+hf download Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign \
+  --revision 5ecdb67327fd37bb2e042aab12ff7391903235d3
+```
+
+The Base route accepts reference audio and transcript per request. To register
+persistent named voices instead, add matching `--voice`, `--voice-text`, and
+optionally `--voice-lang` arguments to that route; those operator-owned voice
+files are not model sidecars.
+
+### Qwen Image 2.1
+
+```sh
+hf download Qwen/Qwen-Image-2.1 \
+  --revision b3179ad355be050328e483a9dfdd9e60cd62adfa
+```
+
+### MiniMax H3 FL2VA
+
+```sh
+hf download MiniMaxAI/MiniMax-H3 \
+  --revision 42ed227ee7df40d41602854ae760620d6eb651fe \
+  --include LICENSE README.md model_index.json 'FL2VA/**'
+```
+
+Gufo validates H3's pinned inventory before allocating the device. Its video
+jobs live under `/var/lib/llama-swap/gufo-h3-jobs` and expire one hour after
+completion.
+
+### Verify cached snapshots
+
+This checks that each expected immutable snapshot exists and that the GGUF
+sidecars are present. `hf download` itself validates downloaded blob hashes.
+
+```sh
+cache="$HOME/.cache/huggingface/hub"
+
+test -f "$cache/models--unsloth--Qwen3.8-27B-GGUF/snapshots/4ca720788d1e01f1bff70c033e0d0028fd02e502/Qwen3.8-27B-UD-Q4_K_XL.gguf"
+test -f "$cache/models--unsloth--Qwen3.8-27B-GGUF/snapshots/4ca720788d1e01f1bff70c033e0d0028fd02e502/mmproj-BF16.gguf"
+test -f "$cache/models--z-lab--Qwen3.8-27B-DFlash2-GGUF/snapshots/2d9571f8ce46e151f61c6499c99dee6079e1d610/Qwen3.8-27B-DFlash2-Q4_K_M.gguf"
+test -f "$cache/models--unsloth--Qwen3.8-Flash-Next-GGUF/snapshots/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00004-of-00004.gguf"
+test -f "$cache/models--unsloth--Qwen3.8-Flash-Next-GGUF/snapshots/38bb39ee97821de2c9009abb7e93950eec396e66/MTP/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf"
+test -f "$cache/models--antirez--deepseek-v4-gguf/snapshots/1cd7b564460821938add0475a60b942c409295e0/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf"
+test -f "$cache/models--antirez--deepseek-v4-gguf/snapshots/e7f04037032990db0346398d249baf9fb9df1ccc/DeepSeek-V4-Flash-DSpark-support-0731.gguf"
+test -f "$cache/models--Qwen--Qwen3-ASR-1.7B/snapshots/7278e1e70fe206f11671096ffdd38061171dd6e5/config.json"
+test -f "$cache/models--Qwen--Qwen3-TTS-12Hz-1.7B-Base/snapshots/fd4b254389122332181a7c3db7f27e918eec64e3/config.json"
+test -f "$cache/models--Qwen--Qwen3-TTS-12Hz-1.7B-CustomVoice/snapshots/0c0e3051f131929182e2c023b9537f8b1c68adfe/config.json"
+test -f "$cache/models--Qwen--Qwen3-TTS-12Hz-1.7B-VoiceDesign/snapshots/5ecdb67327fd37bb2e042aab12ff7391903235d3/config.json"
+test -f "$cache/models--Qwen--Qwen-Image-2.1/snapshots/b3179ad355be050328e483a9dfdd9e60cd62adfa/model_index.json"
+test -f "$cache/models--MiniMaxAI--MiniMax-H3/snapshots/42ed227ee7df40d41602854ae760620d6eb651fe/model_index.json"
+echo 'All Gufo snapshots are present.'
+```
+
+The Gemma projector and external MTP draft are cached at revision
+`c099eb48e663fd284577b04978a94ffccb261841`. If its primary is missing, download
+it before rebuilding:
 
 ```sh
 hf download unsloth/gemma-4-26B-A4B-it-GGUF \
@@ -91,41 +239,25 @@ hf download unsloth/gemma-4-26B-A4B-it-GGUF \
   --revision c099eb48e663fd284577b04978a94ffccb261841
 ```
 
-Verify all three Gemma files are readable:
+## Deploy Halo
+
+First verify the configuration without activation:
 
 ```sh
-gemma="$HOME/.cache/huggingface/hub/models--unsloth--gemma-4-26B-A4B-it-GGUF/snapshots/c099eb48e663fd284577b04978a94ffccb261841"
-stat "$gemma/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf" \
-  "$gemma/mmproj-F16.gguf" \
-  "$gemma/mtp-gemma-4-26B-A4B-it.gguf"
+nix build .#nixosConfigurations.halo.config.system.build.toplevel
 ```
 
-## Deploy
-
-Rebuild Halo to generate the llama-swap YAML and systemd units:
+After the runtime assets are present, activate only when a Halo deployment is
+intended:
 
 ```sh
 sudo nixos-rebuild switch --flake ~/dotfiles#halo
-systemctl status lemond llama-swap litellm --no-pager
-systemctl status lemonade-preload --no-pager
+systemctl status lemond llama-swap --no-pager
 lemonade status --json
+gufo diagnose
 ```
 
-`lemonade-preload` should report that the unit does not exist. Lemonade's status
-must show no loaded model after llama-swap starts.
-
-The first activation generates a persistent LiteLLM master key outside the Nix
-store. Read it locally, then use the value as the Bearer/API key in clients:
-
-```sh
-sudo sed -n 's/^LITELLM_MASTER_KEY=//p' /var/lib/litellm/environment
-```
-
-OMP reads that value from `LITELLM_API_KEY` and uses `openai-models-list`
-discovery against LiteLLM. Open WebUI is connected automatically; its state,
-backup, and restore procedure is documented in [openwebui.md](openwebui.md).
-For other clients, configure an OpenAI-compatible connection with URL
-`http://halo:4000/v1` and use the same key.
+Lemonade's status must show no loaded model after llama-swap starts.
 
 ## Verify the generated configuration
 
@@ -138,7 +270,15 @@ config=$(systemctl show llama-swap -p ExecStart --value \
 sudo cat "$config"
 ```
 
-Confirm the model list is exact:
+For every Gufo route, confirm the generated command contains the Nix-store
+Gufo executable, llama-swap's `${PORT}` substitution, and the pinned snapshot
+path. Check the DFlash2, MTP, and DSpark sidecar flags on their respective text
+routes; the BF16 projectors on both vision LLMs; the modality-specific
+`asr`/`tts`/`image`/`video` subcommand; and H3's writable job root. Confirm all
+Gufo models use `/ready`. Confirm Qwen Image's matrix set is `ui & g` and every
+other Gufo route still has a distinct singleton set.
+
+Confirm the catalog includes all routes:
 
 ```sh
 curl --fail --silent http://127.0.0.1:9292/v1/models \
@@ -152,80 +292,152 @@ Gemma-4-26B-A4B-it-MTP-GGUF
 NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
 Qwen3.6-35B-A3B-MTP-GGUF
 Qwen3.8-27B-GGUF
+gufo/DeepSeek-V4-Flash-DSpark
+gufo/Qwen-Image-2.1
+gufo/Qwen3-ASR-1.7B
+gufo/Qwen3-TTS-12Hz-1.7B-Base
+gufo/Qwen3-TTS-12Hz-1.7B-CustomVoice
+gufo/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+gufo/Qwen3.8-27B-DFlash2
+gufo/Qwen3.8-Flash-Next-MTP
+minimax-h3
 ```
 
-Load each model sequentially with a short request:
+Exercise Gufo text and streaming requests directly through llama-swap:
 
 ```sh
-for model in \
-  Qwen3.6-35B-A3B-MTP-GGUF \
-  Qwen3.8-27B-GGUF \
-  NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF \
-  Gemma-4-26B-A4B-it-MTP-GGUF
-do
-  curl --fail --silent http://127.0.0.1:9292/v1/chat/completions \
-    -H 'Content-Type: application/json' \
-    -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with OK.\"}],\"max_tokens\":8,\"reasoning_effort\":\"none\"}" \
-    | jq -r '.choices[0].message.content'
-  pgrep -af llama-server
-done
+curl --fail --silent http://127.0.0.1:9292/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gufo/Qwen3.8-27B-DFlash2","messages":[{"role":"user","content":"Reply with OK."}],"max_tokens":8}' \
+  | jq -r '.choices[0].message.content'
+
+curl --fail --no-buffer http://127.0.0.1:9292/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gufo/Qwen3.8-27B-DFlash2","messages":[{"role":"user","content":"Count from one to five."}],"max_tokens":32,"stream":true}'
 ```
 
-During the sequence, follow the combined gateway/backend logs:
+For tools, send a declared function with `tool_choice: required`; for vision,
+send an OpenAI content array containing a base64 `image_url` and a text part.
+Test a non-off `reasoning_effort` separately to confirm the request overrides
+the server's thinking-off default.
+
+Exercise the other API families through llama-swap. Replace sample file names
+and TTS voice controls with values valid for the checkpoint:
+
+```sh
+# ASR
+curl --fail --silent http://127.0.0.1:9292/v1/audio/transcriptions \
+  -F file=@speech.wav -F model=gufo/Qwen3-ASR-1.7B
+
+# TTS Base with a per-request clone reference
+curl --fail --silent http://127.0.0.1:9292/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gufo/Qwen3-TTS-12Hz-1.7B-Base","voice":"voice-clone","input":"Hello from Gufo.","reference_audio":"<base64 WAV>","reference_text":"Reference transcript."}' \
+  --output speech.wav
+
+# Image generation
+curl --fail --silent http://127.0.0.1:9292/v1/images/generations \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gufo/Qwen-Image-2.1","prompt":"A red ceramic teapot on a wooden table","size":"1024x1024","seed":42}' \
+  > image.json
+
+# H3: llama-swap v249 requires its generic upstream path for video.
+curl --fail --silent http://127.0.0.1:9292/upstream/minimax-h3/v1/videos \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"minimax-h3","prompt":"A red fox walking through snow","size":"512x512","seconds":5,"gufo":{"seed":42}}'
+```
+
+The H3 creation response contains a job ID. Poll and download it through the
+same `/upstream/minimax-h3/v1/videos/<id>` and
+`/upstream/minimax-h3/v1/videos/<id>/content` prefix.
+
+Follow logs while testing and confirm model readiness, 262,144 context, the
+BF16 projector, DFlash2 proposals/acceptance, and adaptive draft behavior:
 
 ```sh
 journalctl -fu llama-swap
+journalctl -u llama-swap -b \
+  | rg -i 'gufo|dflash|draft|accept|context|mmproj|memory|error|fail'
 ```
 
-For every model, verify the log reports the configured context, `ROCm0` layer
-offload, Q8 K and V caches, Flash Attention, and MTP initialization. Both Qwen
-models must also load `mmproj-F16.gguf` and report YaRN scaling. Nemotron must
-remain text-only. Gemma must load `mmproj-F16.gguf`, its separate
-`mtp-gemma-4-26B-A4B-it.gguf` draft, and Q4 draft K/V caches. Between requests,
-`pgrep` should show only the newly selected backend; the prior PID must
-disappear before the next allocation.
-
-Finally, check memory while each maximum context is allocated:
+Switch among several Gufo routes and `Qwen3.8-27B-GGUF`. After each request,
+inspect the process list and verify only the selected residency set remains:
 
 ```sh
-free -h
-amdgpu_top
-journalctl -u llama-swap -b | rg -i 'alloc|memory|error|fail|rocm|flash|mtp|kv'
+pgrep -af 'gufo|llama-server'
 ```
 
-An allocation failure is a deployment failure. Do not silently lower a declared
-context; investigate memory availability or change the advertised contract
-explicitly.
+An allocation failure is a deployment failure. Do not silently lower the
+declared context; investigate memory availability or change the advertised
+contract explicitly.
 
-## LiteLLM unified endpoint
+## Redeploy the remote LiteLLM container
 
-[`hosts/halo/llm.nix`](../hosts/halo/llm.nix) configures LiteLLM through the
-native NixOS module. It defines the four preferred llama-swap routes, four
-explicit `-lemonade` maintenance routes, and the cached `kokoro-v1` Lemonade TTS
-route. No external YAML file or database is required. The `litellm-key` oneshot
-service generates the master key on first activation and preserves it in
-`/var/lib/litellm/environment`; it is never written to Git or the Nix store.
-Chat routes default to `reasoning_effort: none` so clients that only display
-`message.content` do not appear blank. Clients can override `reasoning_effort`
-or `reasoning_format` per request when they support separate reasoning output.
+[`litellm-config.yaml`](../litellm-config.yaml) defines chat, transcription,
+speech, image, and video aliases for every Gufo route. They forward to Halo at
+`http://10.1.3.246:9292/v1`; the text routes permit `reasoning_effort` but do
+not forward unsupported `reasoning_format`. MiniMax is exposed externally as
+`gufo/MiniMax-H3` and uses llama-swap's
+`/upstream/minimax-h3/v1` base because llama-swap v249 has no first-class video
+route.
 
-Verify the unified model catalog and a completion after each deployment:
+After deploying Halo, git-pull this repository on the LiteLLM host and redeploy
+that host's existing container so it reloads the YAML. Do not open port 4000 on
+Halo; the port belongs to the remote container. Then query that container's
+catalog and send a completion using its existing `LITELLM_MASTER_KEY`:
 
 ```sh
-curl --fail --silent http://127.0.0.1:4000/v1/models \
-  -H "Authorization: Bearer $LITELLM_API_KEY" | jq -r '.data[].id' | sort
-curl --fail --silent http://127.0.0.1:4000/v1/chat/completions \
-  -H "Authorization: Bearer $LITELLM_API_KEY" \
+curl --fail --silent http://<litellm-host>:4000/v1/models \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  | jq -r '.data[].id' | sort
+
+curl --fail --silent http://<litellm-host>:4000/v1/chat/completions \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"llamacpp/Qwen3.6-35B-A3B-MTP-GGUF","messages":[{"role":"user","content":"Reply with OK."}],"max_tokens":8,"reasoning_effort":"none"}' \
+  -d '{"model":"gufo/Qwen3.8-27B-DFlash2","messages":[{"role":"user","content":"Reply with OK."}],"max_tokens":8}' \
   | jq -r '.choices[0].message.content'
 ```
 
-The LiteLLM-facing llama.cpp model IDs use the `llamacpp/` prefix, while the
-Halogen route is `peonist-ai/qwen3.8-flash-next`. The underlying transport
-remains OpenAI-compatible. Direct `-lemonade` requests
-bypass llama-swap's one-model ownership, so first unload the active llama-swap
-model or reserve those aliases for diagnostics. Both Halo upstream ports are
-unauthenticated; restrict them at the network layer if the connected network is
-not fully trusted. LiteLLM itself requires its generated key on every API
-request, but traffic is plain HTTP; use a trusted LAN or encrypted overlay.
+### Open WebUI image generation through LiteLLM
+
+Qwen Image is an image API, not a chat model. Do not select
+`gufo/Qwen-Image-2.1` in Open WebUI's chat-model picker: that sends the request
+to `/v1/chat/completions`, which the Gufo image-only server correctly rejects.
+
+First verify the complete path from the machine hosting LiteLLM:
+
+```sh
+set -o pipefail
+litellm_url=http://127.0.0.1:4000
+curl --fail-with-body --silent "$litellm_url/v1/images/generations" \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gufo/Qwen-Image-2.1","prompt":"A red ceramic teapot on a wooden table","size":"1024x1024","response_format":"b64_json"}' \
+  | jq -r '.data[0].b64_json' | base64 --decode > qwen-image.png
+```
+
+Then configure Open WebUI under **Admin Settings > Experience > Images** (the
+page is named **Admin Panel > Settings > Images** in older releases):
+
+- Enable image generation.
+- Set the engine to **Default (Open AI)**.
+- Reuse the working LiteLLM base URL, including `/v1`. From a Docker container
+  this is normally the Compose service URL such as `http://litellm:4000/v1`,
+  not `localhost`, unless the containers use host networking.
+- Reuse the LiteLLM API key; leave API version empty.
+- Set the model to `gufo/Qwen-Image-2.1` and size to `1024x1024`.
+
+To let a chat model call the configured image engine, edit that *chat model*
+under **Workspace > Models**, enable its **Image Generation** capability, and
+ensure the user's role has the Image Generation feature permission. The image
+model itself still must not be used as the conversation model. Configure the
+same base URL, key, and model in Open WebUI's image-edit settings if editing is
+also desired; Gufo exposes `/v1/images/edits` through the same path. Only Gemma
+4 is a supported resident chat companion for image generation, and only
+`1024x1024` text-to-image generation has passed the concurrent memory test.
+Image editing and larger sizes must be validated separately before use as a
+concurrent workload.
+
+Both Halo upstream ports are unauthenticated. Restrict them at the network
+layer if the connected network is not trusted. LiteLLM requires its configured
+master key, but traffic is plain HTTP; use a trusted LAN or encrypted overlay.
