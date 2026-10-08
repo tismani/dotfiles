@@ -18,17 +18,20 @@ than through LiteLLM.
 | --- | --- | ---: | --- | --- |
 | `Qwen3.6-35B-A3B-MTP-GGUF` | llama.cpp chat | 1,010,000 | text/image → text | embedded MTP, 2 tokens |
 | `Qwen3.8-27B-GGUF` | llama.cpp chat | 1,000,000 | text/image → text | embedded MTP, 3 tokens |
+| `Qwen3.8-27B-TURBO-Fable-Cold-Fusion-MTP-GGUF` | llama.cpp chat | 262,144 | text/image → text | embedded MTP, 2 tokens |
 | `gufo/Qwen3.8-27B-DFlash2` | Gufo chat | 262,144 | text/image → text | adaptive DFlash2 |
-| `gufo/Qwen3.8-Flash-Next-MTP` | Gufo chat | 262,144 | text/image → text | adaptive MTP |
+| `gufo/Qwen3.8-Flash-Next-MTP` | Gufo chat | 131,072 | text/image → text | adaptive MTP |
 | `gufo/DeepSeek-V4-Flash-DSpark` | Gufo chat | 262,144 | text → text | DSpark |
 | `gufo/Qwen3-ASR-1.7B` | Gufo transcription | 1,024/chunk | audio → text | — |
 | `gufo/Qwen3-TTS-12Hz-1.7B-Base` | Gufo speech | 4,096 | text/reference audio → audio | — |
 | `gufo/Qwen3-TTS-12Hz-1.7B-CustomVoice` | Gufo speech | 4,096 | text → audio | — |
 | `gufo/Qwen3-TTS-12Hz-1.7B-VoiceDesign` | Gufo speech | 4,096 | text → audio | — |
 | `gufo/Qwen-Image-2.1` | Gufo images | 16,384 encoder tokens | text/image → image | — |
+| `FLUX.2-dev` | stable-diffusion.cpp (Vulkan) images | 512 encoder tokens | text → image | — |
 | `minimax-h3` (`gufo/MiniMax-H3` in LiteLLM) | Gufo video | 4,096 prompt tokens | text → video | — |
 | `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF` | llama.cpp chat | 1,048,576 | text → text | embedded MTP, 3 tokens |
 | `Gemma-4-26B-A4B-it-MTP-GGUF` | llama.cpp chat | 262,144 | text/image → text | external MTP, 3 tokens |
+| `Qwen3-Embedding-4B-GGUF` | llama.cpp embeddings | 4 × 8,192 | text → 2,560-d vector | — |
 
 The llama.cpp Qwen models use static factor-4 YaRN from a 262,144-token
 original context. The configured contexts are publisher ceilings, not claims
@@ -44,6 +47,7 @@ See the [pinned Gufo model guides](https://github.com/gufo-org/gufo/tree/982bffe
 [pinned Gufo server contract](https://github.com/gufo-org/gufo/blob/982bffea86fd5568759a420c4808c5b2123161c8/docs/SERVER.md),
 [Qwen3.6 model card](https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF),
 [Qwen3.8 model card](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF),
+[Qwen3.8 TURBO model card](https://huggingface.co/DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF),
 [Nemotron model card](https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF),
 and [Gemma 4 model card](https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF).
 
@@ -61,7 +65,26 @@ memory-safety claim for larger images or image editing; validate those workloads
 separately before expanding the supported boundary. See
 [`halo-dual-model-memory.md`](halo-dual-model-memory.md) for the measurements.
 
-The four llama.cpp models may run alone or in any of these six pairs:
+The `Qwen3-Embedding-4B-GGUF` embedder, which backs Open WebUI's RAG, is
+ANDed into every set except DeepSeek and MiniMax H3. It may therefore stay
+resident (about 4.3 GiB of Q8 weights plus a small KV cache) beside any chat,
+image, or speech workload, and it is evicted only when one of those two large
+routes loads. It is never preloaded. The Gemma + Qwen Image measurement above
+was taken before the embedder existed.
+
+`FLUX.2-dev` (served by stable-diffusion.cpp's `sd-server`) has its own set,
+`f2 & e`: its Q8 transformer and Q8 Mistral text encoder are about 57 GiB
+before compute buffers, too large to sit beside Gemma within the pair budget,
+so requesting it evicts every chat model. Measured on
+Vulkan at `1024x1024`: weights load on the first request (about 8 s), GTT
+peaked at about 51 GiB, and sampling ran at about 32.7 s per step. 50 steps
+took 1,645 s, so the server defaults to 28 steps (about 15 minutes per image),
+which stays under the 1,800 s LiteLLM timeout. Lower resolutions are
+proportionally faster. It uses sd.cpp's
+Vulkan build: the ROCm build crashes on the first request when most of GTT is
+free (see the comment in `hosts/halo/llm.nix`).
+
+The five llama.cpp models may run alone or in any of these ten pairs:
 
 - Qwen3.6 + Qwen3.8
 - Qwen3.6 + Nemotron
@@ -69,6 +92,16 @@ The four llama.cpp models may run alone or in any of these six pairs:
 - Qwen3.8 + Nemotron
 - Qwen3.8 + Gemma
 - Nemotron + Gemma
+- Qwen3.8 TURBO + Qwen3.6
+- Qwen3.8 TURBO + Qwen3.8
+- Qwen3.8 TURBO + Nemotron
+- Qwen3.8 TURBO + Gemma
+
+Qwen3.8 TURBO measured 29.6 GiB of GTT alone (Q4_K_M, 262,144 context,
+projector and MTP loaded), about the same as stock Qwen3.8's ~29.4 GiB. Its
+largest pair, with Nemotron, is therefore ~64 GiB estimated peak against the
+87 GiB budget in `halo-dual-model-memory.md`. The pairs themselves are
+estimates and have not been measured.
 
 Requesting a third llama.cpp model evicts one member of the current pair. The
 matrix uses equal default eviction costs, so ties follow pair definition order
@@ -112,6 +145,14 @@ These downloads are large. DeepSeek's target alone is 80.76 GiB, Qwen Image is
 about 33.1 GB, and MiniMax H3 is also substantial. MiniMax H3 is gated: accept
 its license on Hugging Face and run `hf auth login` before its command. Qwen
 Image uses the separate, non-commercial Qwen Research License.
+
+### Qwen3.8 27B TURBO (DavidAU fine-tune)
+
+```sh
+hf download DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF \
+  Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M.gguf mmproj-F16.gguf \
+  --revision ceb55042229d17dcf45df52ad84698339e63d4c5
+```
 
 ### Qwen3.8 27B target, vision projector, and DFlash2 sidecar
 
@@ -193,6 +234,25 @@ hf download Qwen/Qwen-Image-2.1 \
   --revision b3179ad355be050328e483a9dfdd9e60cd62adfa
 ```
 
+### FLUX.2 [dev]
+
+The official `black-forest-labs/FLUX.2-dev` repo is gated and ships bf16
+weights too large for halo. These are the GGUFs and VAE that sd.cpp's FLUX.2
+docs point to; the VAE copy in Comfy-Org's repo is ungated. FLUX.2 [dev] is
+under the non-commercial FLUX [dev] license.
+
+```sh
+hf download city96/FLUX.2-dev-gguf flux2-dev-Q8_0.gguf \
+  --revision ade5d688ddab0d9cf4a5b01bf4321e01c115020d
+
+hf download unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF \
+  Mistral-Small-3.2-24B-Instruct-2506-Q8_0.gguf \
+  --revision b750ec2299225e492f1bd27cab88a0a595fa848f
+
+hf download Comfy-Org/flux2-dev split_files/vae/flux2-vae.safetensors \
+  --revision ed33133cd56476eac818c0943b6f9419b3e4a3a1
+```
+
 ### MiniMax H3 FL2VA
 
 ```sh
@@ -226,7 +286,11 @@ test -f "$cache/models--Qwen--Qwen3-TTS-12Hz-1.7B-CustomVoice/snapshots/0c0e3051
 test -f "$cache/models--Qwen--Qwen3-TTS-12Hz-1.7B-VoiceDesign/snapshots/5ecdb67327fd37bb2e042aab12ff7391903235d3/config.json"
 test -f "$cache/models--Qwen--Qwen-Image-2.1/snapshots/b3179ad355be050328e483a9dfdd9e60cd62adfa/model_index.json"
 test -f "$cache/models--MiniMaxAI--MiniMax-H3/snapshots/42ed227ee7df40d41602854ae760620d6eb651fe/model_index.json"
-echo 'All Gufo snapshots are present.'
+test -f "$cache/models--city96--FLUX.2-dev-gguf/snapshots/ade5d688ddab0d9cf4a5b01bf4321e01c115020d/flux2-dev-Q8_0.gguf"
+test -f "$cache/models--unsloth--Mistral-Small-3.2-24B-Instruct-2506-GGUF/snapshots/b750ec2299225e492f1bd27cab88a0a595fa848f/Mistral-Small-3.2-24B-Instruct-2506-Q8_0.gguf"
+test -f "$cache/models--Comfy-Org--flux2-dev/snapshots/ed33133cd56476eac818c0943b6f9419b3e4a3a1/split_files/vae/flux2-vae.safetensors"
+test -f "$cache/models--DavidAU--Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF/snapshots/ceb55042229d17dcf45df52ad84698339e63d4c5/Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M.gguf"
+echo 'All snapshots are present.'
 ```
 
 The Gemma projector and external MTP draft are cached at revision
@@ -288,10 +352,13 @@ curl --fail --silent http://127.0.0.1:9292/v1/models \
 Expected output:
 
 ```text
+FLUX.2-dev
 Gemma-4-26B-A4B-it-MTP-GGUF
 NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
+Qwen3-Embedding-4B-GGUF
 Qwen3.6-35B-A3B-MTP-GGUF
 Qwen3.8-27B-GGUF
+Qwen3.8-27B-TURBO-Fable-Cold-Fusion-MTP-GGUF
 gufo/DeepSeek-V4-Flash-DSpark
 gufo/Qwen-Image-2.1
 gufo/Qwen3-ASR-1.7B
@@ -340,6 +407,12 @@ curl --fail --silent http://127.0.0.1:9292/v1/images/generations \
   -H 'Content-Type: application/json' \
   -d '{"model":"gufo/Qwen-Image-2.1","prompt":"A red ceramic teapot on a wooden table","size":"1024x1024","seed":42}' \
   > image.json
+
+# FLUX.2 [dev] image generation (stable-diffusion.cpp)
+curl --fail --silent http://127.0.0.1:9292/v1/images/generations \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"FLUX.2-dev","prompt":"A red ceramic teapot on a wooden table","size":"1024x1024"}' \
+  > flux2.json
 
 # H3: llama-swap v249 requires its generic upstream path for video.
 curl --fail --silent http://127.0.0.1:9292/upstream/minimax-h3/v1/videos \
@@ -398,45 +471,11 @@ curl --fail --silent http://<litellm-host>:4000/v1/chat/completions \
   | jq -r '.choices[0].message.content'
 ```
 
-### Open WebUI image generation through LiteLLM
+### Open WebUI
 
-Qwen Image is an image API, not a chat model. Do not select
-`gufo/Qwen-Image-2.1` in Open WebUI's chat-model picker: that sends the request
-to `/v1/chat/completions`, which the Gufo image-only server correctly rejects.
-
-First verify the complete path from the machine hosting LiteLLM:
-
-```sh
-set -o pipefail
-litellm_url=http://127.0.0.1:4000
-curl --fail-with-body --silent "$litellm_url/v1/images/generations" \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{"model":"gufo/Qwen-Image-2.1","prompt":"A red ceramic teapot on a wooden table","size":"1024x1024","response_format":"b64_json"}' \
-  | jq -r '.data[0].b64_json' | base64 --decode > qwen-image.png
-```
-
-Then configure Open WebUI under **Admin Settings > Experience > Images** (the
-page is named **Admin Panel > Settings > Images** in older releases):
-
-- Enable image generation.
-- Set the engine to **Default (Open AI)**.
-- Reuse the working LiteLLM base URL, including `/v1`. From a Docker container
-  this is normally the Compose service URL such as `http://litellm:4000/v1`,
-  not `localhost`, unless the containers use host networking.
-- Reuse the LiteLLM API key; leave API version empty.
-- Set the model to `gufo/Qwen-Image-2.1` and size to `1024x1024`.
-
-To let a chat model call the configured image engine, edit that *chat model*
-under **Workspace > Models**, enable its **Image Generation** capability, and
-ensure the user's role has the Image Generation feature permission. The image
-model itself still must not be used as the conversation model. Configure the
-same base URL, key, and model in Open WebUI's image-edit settings if editing is
-also desired; Gufo exposes `/v1/images/edits` through the same path. Only Gemma
-4 is a supported resident chat companion for image generation, and only
-`1024x1024` text-to-image generation has passed the concurrent memory test.
-Image editing and larger sizes must be validated separately before use as a
-concurrent workload.
+Open WebUI runs on Halo itself and talks to llama-swap directly, not through
+LiteLLM. Its chat, image, video, embedding, speech, and web-search wiring is
+described in [`openwebui.md`](openwebui.md).
 
 Both Halo upstream ports are unauthenticated. Restrict them at the network
 layer if the connected network is not trusted. LiteLLM requires its configured

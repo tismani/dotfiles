@@ -5,6 +5,7 @@
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./llm.nix
+      ./openwebui.nix
       ./flatpak.nix
       ./desktop.nix
       ./power.nix

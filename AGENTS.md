@@ -16,6 +16,7 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
 - `hosts/nightfury/default.nix` — macOS host config.
 - `hosts/halo/configuration.nix` — NixOS host entry; imports the halo modules below.
 - `hosts/halo/llm.nix` — llama-swap + Lemonade/NPU stack (see AI stack).
+- `hosts/halo/openwebui.nix` — Open WebUI + SearXNG; `hosts/halo/openwebui/` holds Open WebUI Tools.
 - `hosts/halo/desktop.nix`, `hosts/halo/flatpak.nix`, `hosts/halo/power.nix` — host extras.
 - `hosts/halo/hardware-configuration.nix` — generated per-machine; do not hand-edit.
 - `modules/common/default.nix` — nix settings, GC, system packages (both hosts).
@@ -32,13 +33,13 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
 - **llama-swap = primary LLM runner.** NixOS systemd service `llama-swap`, listens `0.0.0.0:9292`, on-demand model swap. Model definitions live in `llamaSwapConfig` in `hosts/halo/llm.nix`.
 - **LiteLLM = docker container on a SEPARATE machine (NOT Nix, NOT on halo).** Reads root `litellm-config.yaml` (git-pulled into the container), serves `:4000` on its own host, master key from container env `LITELLM_MASTER_KEY`. Reaches halo's llama-swap over the LAN at `10.1.3.246:9292`; no LiteLLM port is opened on halo.
 - **Lemonade / lemond = NPU + TTS backend**, Nix-managed via `hardware.amd-npu` in `hosts/halo/llm.nix`, reachable `:13305`. Still present; no longer fronted by LiteLLM.
-- **Open WebUI** — removed from Nix (was disabled).
+- **Open WebUI** — NixOS service in `hosts/halo/openwebui.nix`, `0.0.0.0:8080`, talks to llama-swap directly on loopback (chat, Qwen-Image, Qwen3 embeddings, gufo ASR/TTS) plus a loopback SearXNG on `:8888`. `ENABLE_PERSISTENT_CONFIG=False`: Nix env wins over the Admin UI. MiniMax H3 video is an Open WebUI Tool (`hosts/halo/openwebui/minimax_video.py`) imported by hand. Secrets are generated on halo under `/var/lib/open-webui-secrets`. See `docs/openwebui.md`.
 - **OMP** (`home/mani/programs/omp.nix`, macOS-only) connects to **llama-swap directly** at `http://10.1.3.246:9292/v1`, not LiteLLM.
 - Host GPU/ROCm tooling: `amdgpu_top`, `vulkan-tools`, `lmstudio`, `podman` (the halogen model runs via podman inside llama-swap).
 
 ## Add / remove a model
 
-1. Edit `llamaSwapConfig` in `hosts/halo/llm.nix`: the `models` attrset AND the `routing.router` `large-gguf` group `members`.
+1. Edit `llamaSwapConfig` in `hosts/halo/llm.nix`: the `models` attrset AND the `routing.router.settings.matrix` `vars`/`sets` (residency). Chat models also go in `chatModels` in `hosts/halo/openwebui.nix`.
 2. Update `model_list` in root `litellm-config.yaml` to match — same `model_name`, and `max_input_tokens` = that model's llama-swap `capabilities.context`.
 3. Rebuild halo (reloads llama-swap) and redeploy the docker LiteLLM container so it picks up the new `litellm-config.yaml`.
 4. Container networking: the LiteLLM container runs on a separate machine and reaches halo's llama-swap over the LAN — `api_base` is `http://10.1.3.246:9292/v1` (halo's LAN IP, same as OMP uses). Git-pull `litellm-config.yaml` into the container and redeploy there. halo keeps `9292` open for this; nothing is opened on halo for LiteLLM itself.
