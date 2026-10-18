@@ -25,6 +25,9 @@
       # untracked files are skipped, so commit or push them to deploy.
       rebuild-halo =
       "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@halo:~/dotfiles/ && ssh mani@halo 'sudo nixos-rebuild switch --flake ~/dotfiles#halo'";
+      # Same as rebuild-halo, for ajwa.
+      rebuild-ajwa =
+      "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@ajwa:~/dotfiles/ && ssh -t mani@ajwa 'sudo nixos-rebuild switch --flake ~/dotfiles#ajwa'";
     };
     interactiveShellInit = ''
       set fish_greeting # Disable greeting

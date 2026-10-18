@@ -1,24 +1,26 @@
 # AGENTS.md
 
-Coding-agent guide for this two-host Nix flake. Read before editing.
+Coding-agent guide for this three-host Nix flake. Read before editing.
 
 ## Repo
 
-Single flake, two hosts:
+Single flake, three hosts:
 - `nightfury` — macOS (nix-darwin, `aarch64-darwin`), the daily driver.
 - `halo` — **AI-only host**: NixOS (`x86_64-linux`), Framework Desktop, AMD AI Max 300 (Strix Halo). Runs all local LLM inference.
+- `ajwa` — NixOS (`x86_64-linux`), Intel, GNOME, LAN `10.1.2.182`. Never sleeps (`hosts/ajwa/power.nix`).
 
 User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com/mani/dotfiles.git`.
 
 ## Layout
 
-- `flake.nix` — the only place hosts are wired; two outputs: `darwinConfigurations.nightfury`, `nixosConfigurations.halo`.
+- `flake.nix` — the only place hosts are wired; three outputs: `darwinConfigurations.nightfury`, `nixosConfigurations.halo`, `nixosConfigurations.ajwa`.
 - `hosts/nightfury/default.nix` — macOS host config.
 - `hosts/halo/configuration.nix` — NixOS host entry; imports the halo modules below.
 - `hosts/halo/llm.nix` — llama-swap + Lemonade/NPU stack (see AI stack).
 - `hosts/halo/openwebui.nix` — Open WebUI + SearXNG; `hosts/halo/openwebui/` holds Open WebUI Tools.
 - `hosts/halo/desktop.nix`, `hosts/halo/flatpak.nix`, `hosts/halo/power.nix` — host extras.
 - `hosts/halo/hardware-configuration.nix` — generated per-machine; do not hand-edit.
+- `hosts/ajwa/configuration.nix` — NixOS host entry; imports `hosts/ajwa/power.nix` (no-sleep, own copy of halo's) and its generated `hardware-configuration.nix` (do not hand-edit).
 - `modules/common/default.nix` — nix settings, GC, system packages (both hosts).
 - `modules/common/stylix.nix` — Dracula theming.
 - `modules/programs/fish.nix` — fish shell + aliases (both hosts).
@@ -49,14 +51,15 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
 - Verify WITHOUT activating:
   - nightfury: `nix build .#darwinConfigurations.nightfury.system`
   - halo: `nix build .#nixosConfigurations.halo.config.system.build.toplevel`
-  - Shared-module edits (`modules/`, `home/`) → build both.
-- NEVER run activation (`darwin-rebuild switch`, `nixos-rebuild switch`, or the fish `rebuild`/`rebuild-halo` aliases) unless explicitly asked — it mutates the live machine.
-- Human workflow: fish `rebuild` (per-host switch, defined in `modules/programs/fish.nix`); `rebuild-halo` (macOS: rsyncs `~/dotfiles` to halo, then builds and switches on halo itself).
+  - ajwa: `nix build .#nixosConfigurations.ajwa.config.system.build.toplevel`
+  - Shared-module edits (`modules/`, `home/`) → build all hosts.
+- NEVER run activation (`darwin-rebuild switch`, `nixos-rebuild switch`, or the fish `rebuild`/`rebuild-halo`/`rebuild-ajwa` aliases) unless explicitly asked — it mutates the live machine.
+- Human workflow: fish `rebuild` (per-host switch, defined in `modules/programs/fish.nix`); `rebuild-halo` / `rebuild-ajwa` (macOS: rsyncs `~/dotfiles` to that host, then builds and switches there).
 - `nix flake update` is NOT routine — keep the checked-in `flake.lock`.
 
 ## Conventions / landmines
 
-- Do NOT change `system.stateVersion` (halo `"25.11"`, home `"24.11"`) or overwrite `hosts/halo/hardware-configuration.nix` (see `docs/halo-bootstrap.md`).
+- Do NOT change `system.stateVersion` (halo `"25.11"`, ajwa `"26.05"`, home `"24.11"`) or overwrite `hosts/halo/hardware-configuration.nix` (see `docs/halo-bootstrap.md`).
 - Platform-conditional code uses `pkgs.stdenv.hostPlatform.isDarwin` (see `home/mani/programs/omp.nix`, `home/mani/programs/ssh.nix`, `modules/programs/fish.nix`); guard new OS-specific config the same way.
 - Hard-coded LAN IP `10.1.3.246` appears in `home/mani/programs/omp.nix` (llama-swap base URL) and `home/mani/programs/ssh.nix` (halo Host) — update together if halo's address changes.
 - SSH private keys are NOT in-repo (Bitwarden-managed; only `.pub` under `home/mani/programs/ssh.nix`). Never add private keys/tokens/secrets.

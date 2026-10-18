@@ -79,6 +79,12 @@ in {
         IdentityAgent = bitwardenAgent;
       };
 
+      # No Bitwarden key yet — password auth, so it keeps the agent-free default.
+      ajwa = {
+        HostName = "10.1.2.182";
+        User = "mani";
+      };
+
       hostinger = {
         HostName = "195.35.22.19";
         User = "mani";

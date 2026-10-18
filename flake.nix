@@ -73,5 +73,18 @@
         ];
       };
 
+      nixosConfigurations."ajwa" = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        specialArgs = { inherit inputs; };
+        modules = [
+          ./hosts/ajwa/configuration.nix
+          ./modules/common
+          ./modules/programs
+          inputs.stylix.nixosModules.stylix
+          home-manager.nixosModules.home-manager
+          homeManagerConfig
+        ];
+      };
+
     };
 }
