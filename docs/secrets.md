@@ -20,7 +20,7 @@ copies it into the world-readable store.
 mkdir -p ~/Library/Application\ Support/sops/age
 age-keygen -o ~/Library/Application\ Support/sops/age/keys.txt
 # Save the file in Bitwarden, then put the printed "Public key: age1…" into
-# .sops.yaml in place of age1REPLACE_WITH_MANI_PUBLIC_KEY.
+# .sops.yaml as the &mani anchor.
 ```
 
 ## Add a host
@@ -54,11 +54,20 @@ radarr:   { api_key: …, username: …, password: … }
 jellyfin: { api_key: …, admin_password: … }
 qbittorrent: { username: …, password: …, password_hash: … }
 sabnzbd:  { api_key: …, nzb_key: … }
+seerr:    { api_key: … }
+usenet:
+  newshosting: { username: …, password: … }
+indexers:          # one per Prowlarr indexer that needs credentials
+  ninjacentral: { api_key: … }
 wireguard:
   conf: |          # whole wg-quick .conf, indented under `|`
     [Interface]
     ...
 ```
+
+Adding a Prowlarr indexer with credentials takes both an `indexers/<name>/…`
+key here and a matching `sops.secrets."indexers/<name>/…" = { };` in
+`media.nix`, or activation fails.
 
 qBittorrent's WebUI login comes from `qbittorrent/password_hash`, spliced into
 its config at each start (nixpkgs overwrites qBittorrent.conf, so a password

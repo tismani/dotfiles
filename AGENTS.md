@@ -20,15 +20,15 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
 - `hosts/halo/openwebui.nix` — Open WebUI + SearXNG; `hosts/halo/openwebui/` holds Open WebUI Tools.
 - `hosts/halo/desktop.nix`, `hosts/halo/flatpak.nix`, `hosts/halo/power.nix` — host extras.
 - `hosts/halo/hardware-configuration.nix` — generated per-machine; do not hand-edit.
-- `hosts/ajwa/configuration.nix` — NixOS host entry; imports `hosts/ajwa/power.nix` (no-sleep, own copy of halo's), `hosts/ajwa/media.nix` (nixflix: Prowlarr/Sonarr/Radarr/Jellyfin/qBittorrent/SABnzbd) and its generated `hardware-configuration.nix` (do not hand-edit).
-- `modules/common/default.nix` — nix settings, GC, system packages (both hosts).
+- `hosts/ajwa/configuration.nix` — NixOS host entry; imports `hosts/ajwa/power.nix` (no-sleep, own copy of halo's), `hosts/ajwa/media.nix` (nixflix: Prowlarr/Sonarr/Radarr/Jellyfin, qBittorrent/SABnzbd behind a WireGuard namespace, Recyclarr, Seerr, Maintainerr; see ajwa media stack) and its generated `hardware-configuration.nix` (do not hand-edit).
+- `modules/common/default.nix` — nix settings, GC, system packages (all hosts).
 - `modules/common/stylix.nix` — Dracula theming.
 - `modules/common/sops.nix` — sops-nix defaults (all hosts); `.sops.yaml` + `secrets/<host>.yaml` hold recipients and encrypted secrets. See `docs/secrets.md`.
-- `modules/programs/fish.nix` — fish shell + aliases (both hosts).
+- `modules/programs/fish.nix` — fish shell + aliases (all hosts).
 - `home/mani/default.nix` — home-manager entry; imports the programs below.
-- `home/mani/programs/` — per-program user config (omp, ssh, kitty, helix, herdr, starship, yt-dlp).
+- `home/mani/programs/` — per-program user config (omp, ssh, kitty, helix, herdr, lazydocker, starship, superfile, yt-dlp).
 - `home/mani/desktop/` — niri + noctalia, Linux-only, imported per-host.
-- `docs/` — per-host bootstrap plus `docs/halo-llm.md`, `docs/openwebui.md`.
+- `docs/` — per-host bootstrap plus `docs/halo-llm.md`, `docs/halo-dual-model-memory.md`, `docs/openwebui.md`, `docs/herdr-quickstart.md`, `docs/secrets.md`.
 - `litellm-config.yaml` — root; docker LiteLLM config (see AI stack).
 
 ## Halo AI stack
@@ -47,6 +47,15 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
 3. Rebuild halo (reloads llama-swap) and redeploy the docker LiteLLM container so it picks up the new `litellm-config.yaml`.
 4. Container networking: the LiteLLM container runs on a separate machine and reaches halo's llama-swap over the LAN — `api_base` is `http://10.1.3.246:9292/v1` (halo's LAN IP, same as OMP uses). Git-pull `litellm-config.yaml` into the container and redeploy there. halo keeps `9292` open for this; nothing is opened on halo for LiteLLM itself.
 
+## ajwa media stack
+
+nixflix in `hosts/ajwa/media.nix`; every credential is a sops secret (see `docs/secrets.md`).
+- **VPN:** only qBittorrent/SABnzbd run in the WireGuard namespace (kill switch). nixflix requires Prowlarr/Sonarr/Radarr all in or all out; they're out by choice.
+- **qBittorrent login:** nixpkgs rewrites `qBittorrent.conf` on every start, so the WebUI hash is spliced in from sops `qbittorrent/password_hash` by an `ExecStartPre`. A password set in the WebUI won't survive a restart.
+- **Seerr:** defining `seerr.radarr.<name>` / `seerr.sonarr.<name>` replaces nixflix's generated instance (option default, not merged) — restate `apiKey` and `isDefault`.
+- **Maintainerr rules:** `nixflix.maintainerr.rules` is the source of truth. Groups are matched by `name`; unlisted groups are deleted and UI edits overwritten on each sync. Draft in the UI, export with `curl localhost:6246/api/rules`, port to Nix. Always set `arrAction` (option default is `DO_NOTHING`).
+- **Stay on unstable:** nixflix only targets nixos-unstable, and Jellyfin/Seerr state in `/data/.state` can't be downgraded to 26.05's older versions.
+
 ## Build / verify / activate
 
 - Verify WITHOUT activating:
@@ -55,7 +64,7 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
   - ajwa: `nix build .#nixosConfigurations.ajwa.config.system.build.toplevel`
   - Shared-module edits (`modules/`, `home/`) → build all hosts.
 - NEVER run activation (`darwin-rebuild switch`, `nixos-rebuild switch`, or the fish `rebuild`/`rebuild-halo`/`rebuild-ajwa` aliases) unless explicitly asked — it mutates the live machine.
-- Human workflow: fish `rebuild` (per-host switch, defined in `modules/programs/fish.nix`); `rebuild-halo` / `rebuild-ajwa` (macOS: rsyncs `~/dotfiles` to that host, then builds and switches there).
+- Human workflow: fish `rebuild` (per-host switch, defined in `modules/programs/fish.nix`); `rebuild-halo` / `rebuild-ajwa` (macOS: rsyncs `~/dotfiles` to that host, runs `git add -A` there — rsync skips `.git` and flakes ignore untracked files — then builds and switches there).
 - `nix flake update` is NOT routine — keep the checked-in `flake.lock`.
 
 ## Conventions / landmines
@@ -72,6 +81,6 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
 
 ## Where changes go
 
-- New CLI tool for both hosts → `modules/common/default.nix` (system) or `home/mani/default.nix` (user).
+- New CLI tool for all hosts → `modules/common/default.nix` (system) or `home/mani/default.nix` (user).
 - New shell program → new file in `home/mani/programs/` + add to `home/mani/programs/default.nix` imports.
 - Host-specific → that host's `hosts/<name>/` module.

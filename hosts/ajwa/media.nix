@@ -29,6 +29,8 @@ in
       "usenet/newshosting/username" = { };
       "usenet/newshosting/password" = { };
       "wireguard/conf" = { };
+      "seerr/api_key" = { };
+      "indexers/ninjacentral/api_key" = { };
     };
   };
 
@@ -59,6 +61,13 @@ in
         apiKey = secret "prowlarr/api_key";
         hostConfig.username = secret "prowlarr/username";
         hostConfig.password = secret "prowlarr/password";
+        # `name` must match the indexer's name in Prowlarr's catalogue exactly
+        # (Indexers > Add Indexer), or the rebuild fails with "No schema
+        # found". Credentials go in sops; declare each one in sops.secrets.
+        indexers = [
+          { name = "NinjaCentral"; apiKey = secret "indexers/ninjacentral/api_key"; }
+          # { name = "The Pirate Bay"; }  # public: no credentials
+        ];
       };
     };
 
@@ -119,6 +128,78 @@ in
         username = secret "usenet/newshosting/username";
         password = secret "usenet/newshosting/password";
       }];
+    };
+
+    # TRaSH Guides quality profiles + custom formats, synced daily.
+    recyclarr = {
+      enable = true;
+      radarrQuality = "4K"; # "[SQP] SQP-1 (2160p)"
+      sonarrQuality = "1080p"; # "WEB-1080p (Alternative)"
+    };
+
+    # Rule-based cleanup on :6246. Talks to Jellyfin/Seerr/Radarr/Sonarr
+    # with their existing sops API keys (nixflix defaults).
+    maintainerr = {
+      enable = true;
+      openFirewall = true;
+      # Source of truth: groups not listed here are deleted on each sync, and
+      # UI edits are overwritten. To change one, draft it in the UI, export
+      # with `curl localhost:6246/api/rules`, and port it here (see nixflix
+      # docs: examples/maintainerr-rules). firstVal [ 6 0 ] = Jellyfin "date
+      # added"; customVal is seconds ago. arrAction defaults to DO_NOTHING in
+      # the option (not DELETE as the docs table says), so always set it.
+      rules = [
+        {
+          name = "Delete series after 90 days";
+          library = "Shows";
+          dataType = "season";
+          sonarrServerName = "Sonarr";
+          arrAction = "DELETE";
+          collection.deleteAfterDays = 2;
+          rules = [{
+            # Added more than 90 days ago.
+            customVal = { ruleTypeId = 0; value = toString (90 * 86400); };
+            firstVal = [ 6 0 ];
+            action = "BEFORE";
+            section = 0;
+          }];
+        }
+        {
+          name = "delete movies after 45 days";
+          library = "Movies";
+          dataType = "movie";
+          radarrServerName = "Radarr";
+          arrAction = "DELETE";
+          collection.deleteAfterDays = 5;
+          rules = [{
+            # Added more than 45 days ago.
+            customVal = { ruleTypeId = 0; value = toString (45 * 86400); };
+            firstVal = [ 6 0 ];
+            action = "BEFORE";
+            section = 0;
+          }];
+        }
+      ];
+    };
+
+    # Media requests on :5055; logs in with the Jellyfin admin from sops.
+    seerr = {
+      enable = true;
+      openFirewall = true;
+      apiKey = secret "seerr/api_key";
+      # Defining these replaces nixflix's auto-generated instances (an option
+      # default, not merged), so restate the API key and default flag. Profiles
+      # point at Recyclarr's instead of the stock HD-1080p.
+      radarr.Radarr = {
+        apiKey = secret "radarr/api_key";
+        isDefault = true;
+        activeProfileName = "[SQP] SQP-1 (2160p)";
+      };
+      sonarr.Sonarr = {
+        apiKey = secret "sonarr/api_key";
+        isDefault = true;
+        activeProfileName = "WEB-1080p (Alternative)";
+      };
     };
   };
 
