@@ -21,13 +21,14 @@
       else "sudo nixos-rebuild switch --flake ~/dotfiles";
     } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
       # Build on halo (not the macOS host): rsync the working tree, then switch.
-      # Builds what's in ~/dotfiles here, including uncommitted changes;
-      # untracked files are skipped, so commit or push them to deploy.
+      # Builds what's in ~/dotfiles here, including uncommitted changes.
+      # rsync skips .git, so the remote clone's index doesn't know new files and
+      # flakes ignore untracked files; `git add -A` there makes them visible.
       rebuild-halo =
-      "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@halo:~/dotfiles/ && ssh mani@halo 'sudo nixos-rebuild switch --flake ~/dotfiles#halo'";
+      "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@halo:~/dotfiles/ && ssh mani@halo 'cd ~/dotfiles && git add -A && sudo nixos-rebuild switch --flake ~/dotfiles#halo'";
       # Same as rebuild-halo, for ajwa.
       rebuild-ajwa =
-      "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@ajwa:~/dotfiles/ && ssh -t mani@ajwa 'sudo nixos-rebuild switch --flake ~/dotfiles#ajwa'";
+      "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@ajwa:~/dotfiles/ && ssh -t mani@ajwa 'cd ~/dotfiles && git add -A && sudo nixos-rebuild switch --flake ~/dotfiles#ajwa'";
     };
     interactiveShellInit = ''
       set fish_greeting # Disable greeting

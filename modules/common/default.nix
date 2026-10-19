@@ -1,6 +1,6 @@
 { pkgs, ... }: {
 
-  imports = [ ./stylix.nix ];
+  imports = [ ./stylix.nix ./sops.nix ];
 
   nixpkgs.config.allowUnfree = true;
 

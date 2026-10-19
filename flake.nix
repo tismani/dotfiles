@@ -31,6 +31,18 @@
       url = "github:nix-community/stylix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Secrets: age-encrypted in secrets/, decrypted on each host at activation.
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Declarative *arr + Jellyfin media stack (ajwa only).
+    nixflix = {
+      url = "github:kiriwalawren/nixflix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs@{ self, nixpkgs, nixos-hardware, nix-darwin, home-manager, ... }:
@@ -40,6 +52,8 @@
           useGlobalPkgs = true;
           useUserPackages = true;
           backupFileExtension = "backup";
+          # Wired now so user-level secrets (SSH keys) can move into sops later.
+          sharedModules = [ inputs.sops-nix.homeManagerModules.sops ];
           users.mani = import ./home/mani;
         };
       };
@@ -53,6 +67,7 @@
           ./modules/common
           ./modules/programs
           inputs.stylix.darwinModules.stylix
+          inputs.sops-nix.darwinModules.sops
           home-manager.darwinModules.home-manager
           homeManagerConfig
         ];
@@ -68,6 +83,7 @@
           inputs.nix-amd-ai.nixosModules.default
           nixos-hardware.nixosModules.framework-desktop-amd-ai-max-300-series
           inputs.stylix.nixosModules.stylix
+          inputs.sops-nix.nixosModules.sops
           home-manager.nixosModules.home-manager
           homeManagerConfig
         ];
@@ -78,9 +94,11 @@
         specialArgs = { inherit inputs; };
         modules = [
           ./hosts/ajwa/configuration.nix
+          inputs.nixflix.nixosModules.default
           ./modules/common
           ./modules/programs
           inputs.stylix.nixosModules.stylix
+          inputs.sops-nix.nixosModules.sops
           home-manager.nixosModules.home-manager
           homeManagerConfig
         ];

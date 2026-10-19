@@ -20,9 +20,10 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
 - `hosts/halo/openwebui.nix` — Open WebUI + SearXNG; `hosts/halo/openwebui/` holds Open WebUI Tools.
 - `hosts/halo/desktop.nix`, `hosts/halo/flatpak.nix`, `hosts/halo/power.nix` — host extras.
 - `hosts/halo/hardware-configuration.nix` — generated per-machine; do not hand-edit.
-- `hosts/ajwa/configuration.nix` — NixOS host entry; imports `hosts/ajwa/power.nix` (no-sleep, own copy of halo's) and its generated `hardware-configuration.nix` (do not hand-edit).
+- `hosts/ajwa/configuration.nix` — NixOS host entry; imports `hosts/ajwa/power.nix` (no-sleep, own copy of halo's), `hosts/ajwa/media.nix` (nixflix: Prowlarr/Sonarr/Radarr/Jellyfin/qBittorrent/SABnzbd) and its generated `hardware-configuration.nix` (do not hand-edit).
 - `modules/common/default.nix` — nix settings, GC, system packages (both hosts).
 - `modules/common/stylix.nix` — Dracula theming.
+- `modules/common/sops.nix` — sops-nix defaults (all hosts); `.sops.yaml` + `secrets/<host>.yaml` hold recipients and encrypted secrets. See `docs/secrets.md`.
 - `modules/programs/fish.nix` — fish shell + aliases (both hosts).
 - `home/mani/default.nix` — home-manager entry; imports the programs below.
 - `home/mani/programs/` — per-program user config (omp, ssh, kitty, helix, herdr, starship, yt-dlp).
@@ -63,6 +64,7 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
 - Platform-conditional code uses `pkgs.stdenv.hostPlatform.isDarwin` (see `home/mani/programs/omp.nix`, `home/mani/programs/ssh.nix`, `modules/programs/fish.nix`); guard new OS-specific config the same way.
 - Hard-coded LAN IP `10.1.3.246` appears in `home/mani/programs/omp.nix` (llama-swap base URL) and `home/mani/programs/ssh.nix` (halo Host) — update together if halo's address changes.
 - SSH private keys are NOT in-repo (Bitwarden-managed; only `.pub` under `home/mani/programs/ssh.nix`). Never add private keys/tokens/secrets.
+- Secrets go only in sops (`secrets/<host>.yaml`), referenced via `config.sops.secrets.<name>.path` (nixflix: `{ _secret = …; }`) — never as plaintext in `.nix`, which lands in the world-readable store.
 - Stylix themes everything Dracula; `home/mani/programs/herdr.nix` hand-matches it (no stylix herdr target) — keep in sync.
 - `home/mani/default.nix` sets `home.homeDirectory` via `lib.mkDefault "/home/mani"`; nightfury overrides with `lib.mkForce "/Users/mani"`.
 - Comments here explain WHY (workarounds / upstream quirks) — preserve that style.
