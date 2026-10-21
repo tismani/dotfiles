@@ -20,7 +20,7 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
 - `hosts/halo/openwebui.nix` — Open WebUI + SearXNG; `hosts/halo/openwebui/` holds Open WebUI Tools.
 - `hosts/halo/desktop.nix`, `hosts/halo/flatpak.nix`, `hosts/halo/power.nix` — host extras.
 - `hosts/halo/hardware-configuration.nix` — generated per-machine; do not hand-edit.
-- `hosts/ajwa/configuration.nix` — NixOS host entry; imports `hosts/ajwa/power.nix` (no-sleep, own copy of halo's), `hosts/ajwa/media.nix` (nixflix: Prowlarr/Sonarr/Radarr/Jellyfin, qBittorrent/SABnzbd behind a WireGuard namespace, Recyclarr, Seerr, Maintainerr; see ajwa media stack) and its generated `hardware-configuration.nix` (do not hand-edit).
+- `hosts/ajwa/configuration.nix` — NixOS host entry; imports `hosts/ajwa/power.nix` (no-sleep, own copy of halo's), `hosts/ajwa/media.nix` (nixflix: Prowlarr/Sonarr/Radarr/Jellyfin, qBittorrent/SABnzbd behind a WireGuard namespace, Recyclarr, Seerr, Maintainerr, plus nixpkgs Plex; see ajwa media stack), Tailscale (`sudo tailscale up` once) and its generated `hardware-configuration.nix` (do not hand-edit).
 - `modules/common/default.nix` — nix settings, GC, system packages (all hosts).
 - `modules/common/stylix.nix` — Dracula theming.
 - `modules/common/sops.nix` — sops-nix defaults (all hosts); `.sops.yaml` + `secrets/<host>.yaml` hold recipients and encrypted secrets. See `docs/secrets.md`.

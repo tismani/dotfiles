@@ -31,6 +31,8 @@ in
       "wireguard/conf" = { };
       "seerr/api_key" = { };
       "indexers/ninjacentral/api_key" = { };
+      "indexers/bwtorrents/username" = { };
+      "indexers/bwtorrents/password" = { };
     };
   };
 
@@ -50,8 +52,15 @@ in
     vpn = {
       enable = true;
       wgConfFile = config.sops.secrets."wireguard/conf".path;
-      # Who may reach the confined web UIs: LAN + Tailscale's CGNAT range.
-      accessibleFrom = [ "10.0.0.0/8" "100.64.0.0/10" ];
+      # Who may reach the confined web UIs (qBittorrent, SABnzbd): LAN,
+      # 192.168.100.x, and Tailscale (IPv4 CGNAT + IPv6 ULA; MagicDNS names
+      # resolve to both).
+      accessibleFrom = [
+        "10.0.0.0/8"
+        "192.168.100.0/24"
+        "100.64.0.0/10"
+        "fd7a:115c:a1e0::/48"
+      ];
     };
 
     prowlarr = {
@@ -66,6 +75,7 @@ in
         # found". Credentials go in sops; declare each one in sops.secrets.
         indexers = [
           { name = "NinjaCentral"; apiKey = secret "indexers/ninjacentral/api_key"; }
+          { name = "BwTorrents"; username = secret "indexers/bwtorrents/username"; password = secret "indexers/bwtorrents/password"; }
           # { name = "The Pirate Bay"; }  # public: no credentials
         ];
       };
@@ -108,6 +118,9 @@ in
       # Credential the *arr apps use to talk to qBittorrent. qBittorrent's own
       # WebUI login is its PBKDF2 hash, injected from sops below.
       password = secret "qbittorrent/password";
+      # Cap downloads at 200 Mbps of the 300 Mbps line. KiB/s; set here, not
+      # in the WebUI, since qBittorrent.conf is rewritten on every start.
+      serverConfig.BitTorrent.Session.GlobalDLSpeedLimit = 200 * 1000 * 1000 / 8 / 1024;
     };
 
     # nixflix defaults the *arr-side qBittorrent username to
@@ -121,6 +134,10 @@ in
       openFirewall = true;
       settings.misc.api_key = secret "sabnzbd/api_key";
       settings.misc.nzb_key = secret "sabnzbd/nzb_key";
+      # 200 of 300 Mbps: bandwidth_perc only throttles relative to
+      # bandwidth_max (the line speed, 300 Mbps ≈ 36 MiB/s).
+      settings.misc.bandwidth_max = "36M";
+      settings.misc.bandwidth_perc = 67;
       # Credentials go in sops like the rest:
       settings.servers = [{
         name = "newshosting";
@@ -202,6 +219,17 @@ in
       };
     };
   };
+
+  # Plex isn't a nixflix service; it reads the same libraries as Jellyfin.
+  # Claim it at http://10.1.2.182:32400/web from the LAN (Plex only allows
+  # claiming from the local network), then add /data/media/{movies,tv}.
+  services.plex = {
+    enable = true;
+    openFirewall = true;
+    dataDir = "/data/.state/plex";
+  };
+  # nixflix makes the media dirs root:media 0775; plex needs to read them.
+  users.users.plex.extraGroups = [ "media" ];
 
   # nixpkgs reinstalls qBittorrent.conf from serverConfig on every start,
   # wiping a password set in the WebUI. Putting Password_PBKDF2 in

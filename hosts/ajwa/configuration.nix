@@ -94,6 +94,14 @@
     };
   };
 
+  # Log in once with `sudo tailscale up` (no auth key to keep in sops).
+  services.tailscale = {
+    enable = true;
+    openFirewall = true; # UDP 41641 for direct (non-relayed) connections.
+    # Tailnet name used by rebuild-ajwa (modules/programs/fish.nix).
+    extraSetFlags = [ "--hostname=ts-ajwa" ];
+  };
+
   # This option defines the first version of NixOS you have installed on this particular machine,
   # and is used to maintain compatibility with application data (e.g. databases) created on older NixOS versions.
   # Do NOT change this value unless you have manually inspected all the changes it would make to your configuration.

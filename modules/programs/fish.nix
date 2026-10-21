@@ -26,9 +26,9 @@
       # flakes ignore untracked files; `git add -A` there makes them visible.
       rebuild-halo =
       "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@halo:~/dotfiles/ && ssh mani@halo 'cd ~/dotfiles && git add -A && sudo nixos-rebuild switch --flake ~/dotfiles#halo'";
-      # Same as rebuild-halo, for ajwa.
+      # Same as rebuild-halo, for ajwa, over Tailscale (MagicDNS name ts-ajwa).
       rebuild-ajwa =
-      "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@ajwa:~/dotfiles/ && ssh -t mani@ajwa 'cd ~/dotfiles && git add -A && sudo nixos-rebuild switch --flake ~/dotfiles#ajwa'";
+      "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@ts-ajwa:~/dotfiles/ && ssh -t mani@ts-ajwa 'cd ~/dotfiles && git add -A && sudo nixos-rebuild switch --flake ~/dotfiles#ajwa'";
     };
     interactiveShellInit = ''
       set fish_greeting # Disable greeting
