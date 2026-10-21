@@ -7,7 +7,7 @@ Coding-agent guide for this three-host Nix flake. Read before editing.
 Single flake, three hosts:
 - `nightfury` — macOS (nix-darwin, `aarch64-darwin`), the daily driver.
 - `halo` — **AI-only host**: NixOS (`x86_64-linux`), Framework Desktop, AMD AI Max 300 (Strix Halo). Runs all local LLM inference.
-- `ajwa` — NixOS (`x86_64-linux`), Intel, GNOME, LAN `10.1.2.182`. Never sleeps (`hosts/ajwa/power.nix`).
+- `ajwa` — NixOS (`x86_64-linux`), Intel, GNOME, LAN `192.168.100.171`. Never sleeps (`hosts/ajwa/power.nix`).
 
 User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com/mani/dotfiles.git`.
 
@@ -54,6 +54,7 @@ nixflix in `hosts/ajwa/media.nix`; every credential is a sops secret (see `docs/
 - **qBittorrent login:** nixpkgs rewrites `qBittorrent.conf` on every start, so the WebUI hash is spliced in from sops `qbittorrent/password_hash` by an `ExecStartPre`. A password set in the WebUI won't survive a restart.
 - **Seerr:** defining `seerr.radarr.<name>` / `seerr.sonarr.<name>` replaces nixflix's generated instance (option default, not merged) — restate `apiKey` and `isDefault`.
 - **Maintainerr rules:** `nixflix.maintainerr.rules` is the source of truth. Groups are matched by `name`; unlisted groups are deleted and UI edits overwritten on each sync. Draft in the UI, export with `curl localhost:6246/api/rules`, port to Nix. Always set `arrAction` (option default is `DO_NOTHING`).
+- **Reverse proxy:** own Caddy on :80 (not `nixflix.caddy`, which binds most services to 127.0.0.1 and breaks IP:port access). Add `<name> = <port>;` to `proxied` in `media.nix` for `<name>.home.lan`; each name also needs a router DNS entry (no wildcard). VPN-confined services need upstream `192.168.15.1`, not 127.0.0.1.
 - **Stay on unstable:** nixflix only targets nixos-unstable, and Jellyfin/Seerr state in `/data/.state` can't be downgraded to 26.05's older versions.
 
 ## Build / verify / activate

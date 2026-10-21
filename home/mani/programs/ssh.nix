@@ -81,7 +81,7 @@ in {
 
       # No Bitwarden key yet — password auth, so it keeps the agent-free default.
       ajwa = {
-        HostName = "10.1.2.182";
+        HostName = "192.168.100.171";
         User = "mani";
       };
 
