@@ -6,6 +6,7 @@
       ./hardware-configuration.nix
       ./power.nix
       ./media.nix
+      ./n8n.nix
     ];
 
   # Use the systemd-boot EFI boot loader.

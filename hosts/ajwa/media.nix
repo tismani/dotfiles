@@ -228,33 +228,6 @@ in
     };
   };
 
-  # Seerr 3.5 dropped GET library?sync=true / ?enable=<ids> (HTTP 400
-  # "Unknown query parameter 'sync'"); nixflix still uses them, and
-  # seerr-radarr/-sonarr require this unit, so it can't just be disabled.
-  # Same job via the new API: POST library/sync, then PUT library/<id> per
-  # library (enables all, like nixflix's enableAllLibraries default).
-  # Remove once nixflix's seerr/librarySyncService.nix catches up.
-  systemd.services.seerr-libraries.script =
-    let
-      seerr = config.nixflix.seerr;
-      curl = "${pkgs.curl}/bin/curl -sf --header @/run/seerr/api-key-header";
-    in
-    lib.mkForce ''
-      set -euo pipefail
-      BASE_URL="http://${seerr.connectionAddress}:${toString seerr.port}/api/v1/settings/jellyfin/library"
-      printf 'X-Api-Key: %s' "$(cat ${config.sops.secrets."seerr/api_key".path})" > /run/seerr/api-key-header
-      chmod 600 /run/seerr/api-key-header
-
-      echo "Syncing library list from Jellyfin..."
-      LIBS=$(${curl} -X POST "$BASE_URL/sync")
-      echo "$LIBS" | ${pkgs.jq}/bin/jq -r '.[] | "\(.id) - \(.name) (\(.type))"'
-      for id in $(echo "$LIBS" | ${pkgs.jq}/bin/jq -r '.[].id'); do
-        ${curl} -X PUT -H 'Content-Type: application/json' \
-          -d '{"enabled":true}' "$BASE_URL/$id" >/dev/null
-      done
-      echo "Libraries enabled successfully"
-    '';
-
   # Own Caddy instead of nixflix.caddy: enabling that binds the *arr apps,
   # Seerr and Maintainerr to 127.0.0.1, breaking IP:port access.
   services.caddy = {
