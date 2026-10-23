@@ -9,7 +9,6 @@
 
   home.packages = with pkgs; [
     neovim
-    lazygit
     python3
   ];
 
@@ -26,6 +25,10 @@
     enable = true;
     nix-direnv.enable = true;
   };
+
+  # We don't use rofi, but stylix's rofi target still sets the renamed
+  # programs.rofi.font, which triggers a rename warning on every eval.
+  stylix.targets.rofi.enable = false;
 
   programs.home-manager.enable = true;
 }

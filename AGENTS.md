@@ -26,7 +26,7 @@ User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com
 - `modules/common/sops.nix` — sops-nix defaults (all hosts); `.sops.yaml` + `secrets/<host>.yaml` hold recipients and encrypted secrets. See `docs/secrets.md`.
 - `modules/programs/fish.nix` — fish shell + aliases (all hosts).
 - `home/mani/default.nix` — home-manager entry; imports the programs below.
-- `home/mani/programs/` — per-program user config (omp, ssh, kitty, helix, herdr, lazydocker, starship, superfile, yt-dlp).
+- `home/mani/programs/` — per-program user config (omp, ssh, kitty, helix, herdr, lazy (lazydocker + lazygit), starship, superfile, yt-dlp).
 - `home/mani/desktop/` — niri + noctalia, Linux-only, imported per-host.
 - `docs/` — per-host bootstrap plus `docs/halo-llm.md`, `docs/halo-dual-model-memory.md`, `docs/openwebui.md`, `docs/herdr-quickstart.md`, `docs/secrets.md`.
 - `litellm-config.yaml` — root; docker LiteLLM config (see AI stack).

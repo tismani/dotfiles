@@ -10,4 +10,7 @@
       selectedLineBgColor = [ "#44475a" ];
     };
   };
+
+  # Themed by stylix's lazygit target.
+  programs.lazygit.enable = true;
 }
