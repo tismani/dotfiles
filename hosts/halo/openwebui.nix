@@ -1,6 +1,15 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, inputs, ... }:
 
 let
+  # open-webui fails to build on nixos-unstable, so the package comes from
+  # nixos-26.05 while the service module stays on unstable. It is unfree (Open
+  # WebUI License), hence allowUnfree; Hydra doesn't cache it either way, so
+  # it is built locally regardless. Drop this pin once unstable builds again.
+  pkgsStable = import inputs.nixpkgs-stable {
+    inherit (pkgs.stdenv.hostPlatform) system;
+    config.allowUnfree = true;
+  };
+
   # Open WebUI talks to llama-swap on loopback; llama-swap itself is
   # unauthenticated, so every OpenAI-style key below is a placeholder that the
   # clients merely require to be non-empty.
@@ -66,6 +75,7 @@ in
 
   services.open-webui = {
     enable = true;
+    package = pkgsStable.open-webui;
     host = "0.0.0.0";
     port = 8080;
     openFirewall = true;

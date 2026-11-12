@@ -4,6 +4,10 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
+    # Stable nixpkgs, used only to pin packages whose unstable build is broken
+    # (currently open-webui on halo — see hosts/halo/openwebui.nix).
+    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-26.05";
+
     nixos-hardware.url = "github:NixOS/nixos-hardware";
 
     # AMD AI inference stack (Lemonade + ROCm/NPU backends) for Strix Halo.
