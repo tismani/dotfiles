@@ -91,7 +91,7 @@ in
       ENABLE_PERSISTENT_CONFIG = "False";
 
       WEBUI_NAME = "Halo";
-      WEBUI_URL = "http://10.1.3.246:8080";
+      WEBUI_URL = "https://chat.halo.tismani.com"; # Via Caddy (./caddy.nix).
 
       # The port is open to the LAN and Tailscale. Only the very first account
       # may self-register (and becomes admin); later users are created by the
@@ -181,8 +181,8 @@ in
       RAG_TOP_K_RERANKER = "4";
 
       # Speech through the Gufo routes. Browsers only allow microphone capture
-      # in a secure context (HTTPS or localhost), so plain-HTTP LAN access can
-      # play TTS but not record STT.
+      # in a secure context (HTTPS or localhost), so STT needs the Caddy URL;
+      # plain-HTTP :8080 can play TTS but not record.
       AUDIO_STT_ENGINE = "openai";
       AUDIO_STT_OPENAI_API_BASE_URL = llamaSwap;
       AUDIO_STT_OPENAI_API_KEY = noKey;
@@ -220,6 +220,8 @@ in
       server = {
         port = searxPort;
         bind_address = "127.0.0.1";
+        # Exposed through Caddy (./caddy.nix); Open WebUI still uses loopback.
+        base_url = "https://search.halo.tismani.com/";
         secret_key = "$SEARX_SECRET_KEY";
         limiter = false; # Open WebUI's automated queries would be rate-limited.
       };

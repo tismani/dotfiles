@@ -20,12 +20,14 @@
       then "sudo darwin-rebuild switch --flake ~/dotfiles"
       else "sudo nixos-rebuild switch --flake ~/dotfiles";
     } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
-      # Build on halo (not the macOS host): rsync the working tree, then switch.
+      # Build on halo (not the macOS host) over Tailscale (MagicDNS name ts-halo):
+      # rsync the working tree, then switch.
       # Builds what's in ~/dotfiles here, including uncommitted changes.
       # rsync skips .git, so the remote clone's index doesn't know new files and
       # flakes ignore untracked files; `git add -A` there makes them visible.
+      # -t gives sudo a TTY to prompt for the password on.
       rebuild-halo =
-      "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@halo:~/dotfiles/ && ssh mani@halo 'cd ~/dotfiles && git add -A && sudo nixos-rebuild switch --flake ~/dotfiles#halo'";
+      "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@ts-halo:~/dotfiles/ && ssh -t mani@ts-halo 'cd ~/dotfiles && git add -A && sudo nixos-rebuild switch --flake ~/dotfiles#halo'";
       # Same as rebuild-halo, for ajwa, over Tailscale (MagicDNS name ts-ajwa).
       rebuild-ajwa =
       "rsync -az --delete --exclude .git --exclude result ~/dotfiles/ mani@ts-ajwa:~/dotfiles/ && ssh -t mani@ts-ajwa 'cd ~/dotfiles && git add -A && sudo nixos-rebuild switch --flake ~/dotfiles#ajwa'";

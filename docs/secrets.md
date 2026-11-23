@@ -77,3 +77,16 @@ as `qbittorrent/password`:
 ```sh
 nix run git+https://codeberg.org/feathecutie/qbittorrent_password -- --password '<password>'
 ```
+
+## halo secret keys
+
+Declared in `hosts/halo/caddy.nix`; must exist in `secrets/halo.yaml`:
+
+```yaml
+cloudflare: { api_token: … }
+```
+
+A Cloudflare API token scoped to `Zone:DNS:Edit` (plus `Zone:Zone:Read`) on
+tismani.com; Caddy uses it for the DNS-01 challenge of
+`*.halo.tismani.com`. The file was created with a `REPLACE_ME` placeholder;
+set the real value with `sops secrets/halo.yaml`.

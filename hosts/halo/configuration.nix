@@ -9,7 +9,10 @@
       ./flatpak.nix
       ./desktop.nix
       ./power.nix
+      ./caddy.nix
     ];
+
+  sops.defaultSopsFile = ../../secrets/halo.yaml;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -130,7 +133,14 @@
     };
   };
 
-  services.tailscale.enable = true;
+  services.tailscale = {
+    enable = true;
+    # Tailscale SSH: on the tailnet IP, port 22 is answered by tailscaled, not
+    # OpenSSH, and authorised by the tailnet policy's "ssh" section. It was
+    # first enabled by hand (`tailscale up --ssh`); declared here so a fresh
+    # install keeps it. Applied by tailscaled-set.service on each switch.
+    extraSetFlags = [ "--ssh" ];
+  };
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions

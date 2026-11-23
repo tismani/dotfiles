@@ -5,9 +5,13 @@ keys:
   - &mani age1uy9ulzea7mps0ukxat2k3qwxqrzmyuny4a68jep2akmwqwvqupjsp4v0hn
   # Host keys: `ssh-keyscan -t ed25519 <host> | ssh-to-age`.
   - &ajwa age1nt49s6rgqvjhc89sgn2e0azt0zm20vqrlq5akp9kz4fev7gr6ywssxtdkc
+  - &halo age15k9d4h87wx0ahp0hdl3plan0520a5eks970ureqspy4hwg4u8psqlrut5j
 
 creation_rules:
   - path_regex: secrets/ajwa\.yaml$
     key_groups:
       - age: [ *mani, *ajwa ]
-  # halo / nightfury: add a host anchor above and a rule here once they have secrets.
+  - path_regex: secrets/halo\.yaml$
+    key_groups:
+      - age: [ *mani, *halo ]
+  # nightfury: add a host anchor above and a rule here once it has secrets.

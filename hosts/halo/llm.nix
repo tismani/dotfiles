@@ -464,6 +464,12 @@ in
       # Lemonade is not fronted by the remote LiteLLM container. Keep it
       # reachable directly for NPU/TTS diagnostics and recovery.
       host = "0.0.0.0";
+      # Lemonade 403s browser requests from non-loopback origins unless they
+      # are listed: the Caddy name (./caddy.nix) and the direct LAN port.
+      allowedOrigins = [
+        "https://lemonade.halo.tismani.com"
+        "http://10.1.3.246:13305"
+      ];
       models = [
         "Qwen3.6-35B-A3B-MTP-GGUF"
         "Qwen3.8-27B-GGUF"
