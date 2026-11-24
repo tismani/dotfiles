@@ -1,13 +1,14 @@
 { pkgs, lib, ... }:
 
 lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+  # Through Caddy over Tailscale (hosts/halo/caddy.nix): works on and off the
+  # LAN, over HTTPS. Needs Tailscale up on this Mac.
   home.file.".omp/agent/models.yml".text = ''
     providers:
       halo:
-        baseUrl: http://10.1.3.246:9292/v1
+        baseUrl: https://llm.halo.tismani.com/v1
         api: openai-completions
-        apiKey: LITELLM_API_KEY
-        authHeader: true
+        auth: none
         discovery:
           type: openai-models-list
           timeoutMs: 10000

@@ -80,13 +80,21 @@ nix run git+https://codeberg.org/feathecutie/qbittorrent_password -- --password 
 
 ## halo secret keys
 
-Declared in `hosts/halo/caddy.nix`; must exist in `secrets/halo.yaml`:
+Declared in `hosts/halo/caddy.nix` and `hosts/halo/monitoring.nix`; must
+exist in `secrets/halo.yaml`:
 
 ```yaml
 cloudflare: { api_token: … }
+grafana: { admin_password: …, secret_key: … }
 ```
 
 A Cloudflare API token scoped to `Zone:DNS:Edit` (plus `Zone:Zone:Read`) on
 tismani.com; Caddy uses it for the DNS-01 challenge of
 `*.halo.tismani.com`. The file was created with a `REPLACE_ME` placeholder;
 set the real value with `sops secrets/halo.yaml`.
+
+`grafana/*` were generated at random (`sops set`). Read the admin password
+with `sops -d --extract '["grafana"]["admin_password"]' secrets/halo.yaml`.
+Grafana only applies `admin_password` when it first creates its database;
+after that, change it in the UI or with `grafana cli admin reset-admin-password`.
+Never rotate `secret_key`: it encrypts data source credentials in grafana.db.

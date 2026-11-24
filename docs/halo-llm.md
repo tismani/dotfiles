@@ -6,11 +6,8 @@ Lemonade remains directly reachable on port 13305 for NPU/TTS maintenance.
 MiniMax H3 is the one exception to the `/v1` prefix: llama-swap v249 reaches
 its video API through `/upstream/minimax-h3/v1`.
 
-LiteLLM does **not** run on Halo. A Docker container on a separate machine reads
-the repository's [`litellm-config.yaml`](../litellm-config.yaml), listens on
-port 4000 there, and forwards model requests over the LAN to llama-swap at
-`http://10.1.3.246:9292/v1`. OMP also connects directly to llama-swap rather
-than through LiteLLM.
+OMP connects directly to llama-swap at `https://llm.halo.tismani.com/v1` (Caddy
+over Tailscale).
 
 ## Registered models
 
@@ -28,7 +25,7 @@ than through LiteLLM.
 | `gufo/Qwen3-TTS-12Hz-1.7B-VoiceDesign` | Gufo speech | 4,096 | text → audio | — |
 | `gufo/Qwen-Image-2.1` | Gufo images | 16,384 encoder tokens | text/image → image | — |
 | `FLUX.2-dev` | stable-diffusion.cpp (Vulkan) images | 512 encoder tokens | text → image | — |
-| `minimax-h3` (`gufo/MiniMax-H3` in LiteLLM) | Gufo video | 4,096 prompt tokens | text → video | — |
+| `minimax-h3` | Gufo video | 4,096 prompt tokens | text → video | — |
 | `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF` | llama.cpp chat | 1,048,576 | text → text | embedded MTP, 3 tokens |
 | `Gemma-4-26B-A4B-it-MTP-GGUF` | llama.cpp chat | 262,144 | text/image → text | external MTP, 3 tokens |
 | `Qwen3-Embedding-4B-GGUF` | llama.cpp embeddings | 4 × 8,192 | text → 2,560-d vector | — |
@@ -79,7 +76,7 @@ so requesting it evicts every chat model. Measured on
 Vulkan at `1024x1024`: weights load on the first request (about 8 s), GTT
 peaked at about 51 GiB, and sampling ran at about 32.7 s per step. 50 steps
 took 1,645 s, so the server defaults to 28 steps (about 15 minutes per image),
-which stays under the 1,800 s LiteLLM timeout. Lower resolutions are
+which stays under a 1,800 s client timeout. Lower resolutions are
 proportionally faster. It uses sd.cpp's
 Vulkan build: the ROCm build crashes on the first request when most of GTT is
 free (see the comment in `hosts/halo/llm.nix`).
@@ -444,39 +441,11 @@ An allocation failure is a deployment failure. Do not silently lower the
 declared context; investigate memory availability or change the advertised
 contract explicitly.
 
-## Redeploy the remote LiteLLM container
+## Open WebUI
 
-[`litellm-config.yaml`](../litellm-config.yaml) defines chat, transcription,
-speech, image, and video aliases for every Gufo route. They forward to Halo at
-`http://10.1.3.246:9292/v1`; the text routes permit `reasoning_effort` but do
-not forward unsupported `reasoning_format`. MiniMax is exposed externally as
-`gufo/MiniMax-H3` and uses llama-swap's
-`/upstream/minimax-h3/v1` base because llama-swap v249 has no first-class video
-route.
-
-After deploying Halo, git-pull this repository on the LiteLLM host and redeploy
-that host's existing container so it reloads the YAML. Do not open port 4000 on
-Halo; the port belongs to the remote container. Then query that container's
-catalog and send a completion using its existing `LITELLM_MASTER_KEY`:
-
-```sh
-curl --fail --silent http://<litellm-host>:4000/v1/models \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-  | jq -r '.data[].id' | sort
-
-curl --fail --silent http://<litellm-host>:4000/v1/chat/completions \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{"model":"gufo/Qwen3.8-27B-DFlash2","messages":[{"role":"user","content":"Reply with OK."}],"max_tokens":8}' \
-  | jq -r '.choices[0].message.content'
-```
-
-### Open WebUI
-
-Open WebUI runs on Halo itself and talks to llama-swap directly, not through
-LiteLLM. Its chat, image, video, embedding, speech, and web-search wiring is
+Open WebUI runs on Halo itself and talks to llama-swap directly. Its chat, image, video, embedding, speech, and web-search wiring is
 described in [`openwebui.md`](openwebui.md).
 
 Both Halo upstream ports are unauthenticated. Restrict them at the network
-layer if the connected network is not trusted. LiteLLM requires its configured
-master key, but traffic is plain HTTP; use a trusted LAN or encrypted overlay.
+layer if the connected network is not trusted. Direct port traffic is
+plain HTTP; use a trusted LAN or encrypted overlay, or the HTTPS Caddy names.

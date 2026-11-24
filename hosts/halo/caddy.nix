@@ -14,6 +14,7 @@ let
     llm = 9292; # llama-swap, UI at /ui (./llm.nix)
     lemonade = 13305; # Lemonade / lemond (./llm.nix)
     search = 8888; # SearXNG (./openwebui.nix)
+    grafana = 3000; # Grafana (./monitoring.nix); Prometheus stays loopback-only
   };
 in
 {

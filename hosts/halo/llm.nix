@@ -53,6 +53,353 @@ let
     exec ${pkgs.lemonade}/bin/lemonade unload
   '';
 
+  models = {
+    "Qwen3.6-35B-A3B-MTP-GGUF" = {
+      cmd = ''
+        ${llamaServer}
+        ${commonArgs}
+        --ctx-size 262144
+        ${qwenYarnArgs}
+        --model ${qwen36Dir}/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf
+        --mmproj ${qwen36Dir}/mmproj-F16.gguf
+        --alias Qwen3.6-35B-A3B-MTP-GGUF
+        --spec-type draft-mtp --spec-draft-n-max 2
+      '';
+      capabilities = {
+        "in" = [ "text" "image" ];
+        out = [ "text" ];
+        tools = true;
+        context = 1010000;
+      };
+    };
+
+    "Qwen3.8-27B-GGUF" = {
+      cmd = ''
+        ${llamaServer}
+        ${commonArgs}
+        --ctx-size 262144
+        ${qwenYarnArgs}
+        --model ${qwen38Dir}/Qwen3.8-27B-UD-Q4_K_XL.gguf
+        --mmproj ${qwen38Dir}/mmproj-F16.gguf
+        --alias Qwen3.8-27B-GGUF
+        --spec-type draft-mtp --spec-draft-n-max 3
+      '';
+      capabilities = {
+        "in" = [ "text" "image" ];
+        out = [ "text" ];
+        tools = true;
+        context = 1000000;
+      };
+    };
+
+    # DavidAU's TURBO fine-tune of Qwen3.8 27B (Heretic-uncensored, coder
+    # tuned, shorter thinking). Q4_K_M because the card warns tool calling
+    # degrades below it. Native 262k context, no YaRN. The card recommends 2
+    # MTP draft tokens and temp <= 1 (higher temps hurt MTP acceptance);
+    # sampler defaults are its thinking-mode coding preset.
+    "Qwen3.8-27B-TURBO-Fable-Cold-Fusion-MTP-GGUF" = {
+      cmd = ''
+        ${llamaServer}
+        ${commonArgs}
+        --ctx-size 262144
+        --model ${qwen38TurboDir}/Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M.gguf
+        --mmproj ${qwen38TurboDir}/mmproj-F16.gguf
+        --alias Qwen3.8-27B-TURBO-Fable-Cold-Fusion-MTP-GGUF
+        --spec-type draft-mtp --spec-draft-n-max 2
+        --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0
+      '';
+      capabilities = {
+        "in" = [ "text" "image" ];
+        out = [ "text" ];
+        tools = true;
+        context = 262144;
+      };
+    };
+
+    "gufo/Qwen3.8-27B-DFlash2" = {
+      checkEndpoint = "/ready";
+      cmd = ''
+        ${gufo} serve
+        --host 127.0.0.1 --port ''${PORT} --sessions 1
+        llm
+        --model ${qwen38Dir}/Qwen3.8-27B-UD-Q4_K_XL.gguf
+        --mmproj ${qwen38Dir}/mmproj-BF16.gguf
+        --served-model-name gufo/Qwen3.8-27B-DFlash2
+        --context 262144
+        --think off
+        --temperature 0.8 --top-k 40 --top-p 0.95 --min-p 0.05
+        --speculative dflash2
+        --dflash-model ${qwen38DFlashDir}/Qwen3.8-27B-DFlash2-Q4_K_M.gguf
+        --draft-policy adaptive
+      '';
+      capabilities = {
+        "in" = [ "text" "image" ];
+        out = [ "text" ];
+        tools = true;
+        context = 262144;
+      };
+    };
+
+    "gufo/Qwen3.8-Flash-Next-MTP" = {
+      checkEndpoint = "/ready";
+      cmd = ''
+        ${gufo} serve
+        --host 127.0.0.1 --port ''${PORT} --sessions 1
+        llm
+        --model ${qwen38FlashNextDir}/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+        --mmproj ${qwen38FlashNextDir}/mmproj-BF16.gguf
+        --served-model-name gufo/Qwen3.8-Flash-Next-MTP
+        --context 131072
+        --speculative mtp
+        --mtp-model ${qwen38FlashNextDir}/MTP/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf
+      '';
+      capabilities = {
+        "in" = [ "text" "image" ];
+        out = [ "text" ];
+        tools = true;
+        context = 131072;
+      };
+    };
+
+    "gufo/DeepSeek-V4-Flash-DSpark" = {
+      checkEndpoint = "/ready";
+      cmd = ''
+        ${gufo} serve
+        --host 127.0.0.1 --port ''${PORT} --sessions 1
+        llm
+        --model ${deepseekV4Dir}/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
+        --served-model-name gufo/DeepSeek-V4-Flash-DSpark
+        --context 262144
+        --speculative dspark
+        --dspark-model ${deepseekV4DSparkDir}/DeepSeek-V4-Flash-DSpark-support-0731.gguf
+      '';
+      capabilities = {
+        "in" = [ "text" ];
+        out = [ "text" ];
+        tools = true;
+        context = 262144;
+      };
+    };
+
+    "gufo/Qwen3-ASR-1.7B" = {
+      checkEndpoint = "/ready";
+      cmd = ''
+        ${gufo} serve
+        --host 127.0.0.1 --port ''${PORT}
+        --max-request-bytes 268435456
+        asr
+        --model ${qwen3AsrDir}
+        --context 1024
+        --served-model-name gufo/Qwen3-ASR-1.7B
+      '';
+      capabilities = {
+        "in" = [ "audio" ];
+        out = [ "text" ];
+        context = 1024;
+      };
+    };
+
+    "gufo/Qwen3-TTS-12Hz-1.7B-Base" = {
+      checkEndpoint = "/ready";
+      cmd = ''
+        ${gufo} serve
+        --host 127.0.0.1 --port ''${PORT}
+        --max-request-bytes 268435456
+        tts
+        --model ${qwen3TtsBaseDir}
+        --context 4096
+        --served-model-name gufo/Qwen3-TTS-12Hz-1.7B-Base
+      '';
+      capabilities = {
+        "in" = [ "text" "audio" ];
+        out = [ "audio" ];
+        context = 4096;
+      };
+    };
+
+    "gufo/Qwen3-TTS-12Hz-1.7B-CustomVoice" = {
+      checkEndpoint = "/ready";
+      cmd = ''
+        ${gufo} serve
+        --host 127.0.0.1 --port ''${PORT}
+        tts
+        --model ${qwen3TtsCustomVoiceDir}
+        --context 4096
+        --served-model-name gufo/Qwen3-TTS-12Hz-1.7B-CustomVoice
+      '';
+      capabilities = {
+        "in" = [ "text" ];
+        out = [ "audio" ];
+        context = 4096;
+      };
+    };
+
+    "gufo/Qwen3-TTS-12Hz-1.7B-VoiceDesign" = {
+      checkEndpoint = "/ready";
+      cmd = ''
+        ${gufo} serve
+        --host 127.0.0.1 --port ''${PORT}
+        tts
+        --model ${qwen3TtsVoiceDesignDir}
+        --context 4096
+        --served-model-name gufo/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+      '';
+      capabilities = {
+        "in" = [ "text" ];
+        out = [ "audio" ];
+        context = 4096;
+      };
+    };
+
+    "gufo/Qwen-Image-2.1" = {
+      checkEndpoint = "/ready";
+      cmd = ''
+        ${gufo} serve
+        --host 127.0.0.1 --port ''${PORT}
+        --max-request-bytes 268435456
+        image
+        --model ${qwenImage21Dir}
+        --served-model-name gufo/Qwen-Image-2.1
+      '';
+      capabilities = {
+        "in" = [ "text" "image" ];
+        out = [ "image" ];
+        context = 16384;
+      };
+    };
+
+    # llama-swap does not have a native OpenAI video route yet. Keep this
+    # ID slash-free so /upstream/minimax-h3/v1/videos can select it.
+    "minimax-h3" = {
+      checkEndpoint = "/ready";
+      cmd = ''
+        ${gufo} serve
+        --host 127.0.0.1 --port ''${PORT} --sessions 1
+        video
+        --model ${minimaxH3Dir}
+        --root /var/lib/llama-swap/gufo-h3-jobs
+        --ttl 3600
+      '';
+      # llama-swap v249 cannot express "video" in capabilities.out yet.
+      metadata = {
+        input_modalities = [ "text" ];
+        output_modalities = [ "video" ];
+        context = 4096;
+      };
+    };
+
+    "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF" = {
+      cmd = ''
+        ${llamaServer}
+        ${commonArgs}
+        --ctx-size 1048576
+        --model ${nemotronDir}/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-UD-Q4_K_XL.gguf
+        --alias NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
+        --spec-type draft-mtp --spec-draft-n-max 3
+      '';
+      capabilities = {
+        "in" = [ "text" ];
+        out = [ "text" ];
+        tools = true;
+        context = 1048576;
+      };
+    };
+
+    "Gemma-4-26B-A4B-it-MTP-GGUF" = {
+      cmd = ''
+        ${llamaServer}
+        ${commonArgs}
+        --ctx-size 262144
+        --model ${gemmaDir}/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf
+        --mmproj ${gemmaDir}/mmproj-F16.gguf
+        --alias Gemma-4-26B-A4B-it-MTP-GGUF
+        --spec-type draft-mtp --spec-draft-n-max 3
+        --model-draft ${gemmaDir}/mtp-gemma-4-26B-A4B-it.gguf
+        --device-draft ROCm0 --n-gpu-layers-draft all
+        --cache-type-k-draft q4_0 --cache-type-v-draft q4_0
+      '';
+      capabilities = {
+        "in" = [ "text" "image" ];
+        out = [ "text" ];
+        tools = true;
+        context = 262144;
+      };
+    };
+
+    # FLUX.2 [dev] (32B flow transformer, non-commercial license) with
+    # Mistral Small 3.2 24B as its text encoder. gufo's image backend only
+    # serves Qwen Image, so this runs on stable-diffusion.cpp, which has
+    # OpenAI /v1/images routes. The official BFL repo is gated and bf16 is
+    # ~64 GB + ~48 GB encoder, so this uses the GGUFs sd.cpp's docs point
+    # to: city96's Q8_0 transformer, unsloth's Q8_0 Mistral, and Comfy-Org's
+    # ungated copy of the VAE. cfg-scale 1 because guidance is distilled;
+    # --guidance 4 is the model card's default. Steps are 28, not the
+    # card's 50: on Vulkan a 1024x1024 step takes ~32.7 s, so 50 steps took
+    # 1645 s, too close to a 1800 s client timeout.
+    # Vulkan, not ROCm: sd.cpp's ROCm build (master-874) aborts on the first
+    # request when most of GTT is free ("model manager cannot make enough
+    # memory available ... available 0.00 MB device", then a GGML_ASSERT);
+    # --max-vram and --params-backend/--eager-load did not help.
+    # --vae-conv-direct cuts Vulkan's VAE decode from ~39 s to ~2 s (SDXL).
+    "FLUX.2-dev" = {
+      checkEndpoint = "/v1/models";
+      cmd = ''
+        ${sdServer}
+        --listen-ip 127.0.0.1 --listen-port ''${PORT}
+        --diffusion-model ${flux2Dir}/flux2-dev-Q8_0.gguf
+        --llm ${mistralSmall32Dir}/Mistral-Small-3.2-24B-Instruct-2506-Q8_0.gguf
+        --vae ${flux2VaeDir}/split_files/vae/flux2-vae.safetensors
+        --backend Vulkan0
+        --diffusion-fa --vae-conv-direct
+        --width 1024 --height 1024
+        --steps 28 --cfg-scale 1.0 --guidance 4.0
+        --sampling-method euler
+        --seed -1
+      '';
+      capabilities = {
+        "in" = [ "text" ];
+        out = [ "image" ];
+        context = 512;
+      };
+    };
+
+    # Open WebUI's RAG embedder. Not commonArgs: those chat flags (--parallel
+    # 1, 512-token ubatch, q8 KV) would truncate or serialize batched
+    # embedding requests. Non-causal pooling needs each input to fit in one
+    # ubatch, so ubatch equals the per-slot context (32768 / 4).
+    "Qwen3-Embedding-4B-GGUF" = {
+      cmd = ''
+        ${llamaServer}
+        --host 127.0.0.1 --port ''${PORT}
+        --device ROCm0 --n-gpu-layers all
+        --flash-attn on
+        --embedding --pooling last
+        --ctx-size 32768 --parallel 4
+        --batch-size 8192 --ubatch-size 8192
+        --threads 16 --threads-batch 16
+        --model ${qwen3EmbeddingDir}/Qwen3-Embedding-4B-Q8_0.gguf
+        --alias Qwen3-Embedding-4B-GGUF
+        --metrics
+      '';
+      # llama-swap v249 cannot express "embedding" in capabilities.out yet.
+      metadata = {
+        input_modalities = [ "text" ];
+        output_modalities = [ "embedding" ];
+        context = 8192;
+        dimensions = 2560;
+      };
+    };
+
+  };
+
+  # Models whose server answers GET /metrics in llama.cpp's Prometheus format:
+  # llama-server started with --metrics, and gufo's `llm` mode. sd-server and
+  # gufo's asr/tts/image/video modes don't, so they aren't scraped.
+  metricsModels = lib.attrNames (lib.filterAttrs (_: m:
+    let args = lib.splitString "\n" m.cmd;
+    in lib.hasInfix "--metrics" m.cmd || lib.elem "llm" args
+  ) models);
+
   llamaSwapConfig = (pkgs.formats.yaml { }).generate "llama-swap.yaml" {
     # Direct I/O plus million-token KV allocation can take several minutes.
     healthCheckTimeout = 1800;
@@ -60,343 +407,16 @@ let
     logToStdout = "both";
     sendLoadingState = true;
 
-    models = {
-      "Qwen3.6-35B-A3B-MTP-GGUF" = {
-        cmd = ''
-          ${llamaServer}
-          ${commonArgs}
-          --ctx-size 262144
-          ${qwenYarnArgs}
-          --model ${qwen36Dir}/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf
-          --mmproj ${qwen36Dir}/mmproj-F16.gguf
-          --alias Qwen3.6-35B-A3B-MTP-GGUF
-          --spec-type draft-mtp --spec-draft-n-max 2
-        '';
-        capabilities = {
-          "in" = [ "text" "image" ];
-          out = [ "text" ];
-          tools = true;
-          context = 1010000;
-        };
-      };
+    inherit models;
 
-      "Qwen3.8-27B-GGUF" = {
-        cmd = ''
-          ${llamaServer}
-          ${commonArgs}
-          --ctx-size 262144
-          ${qwenYarnArgs}
-          --model ${qwen38Dir}/Qwen3.8-27B-UD-Q4_K_XL.gguf
-          --mmproj ${qwen38Dir}/mmproj-F16.gguf
-          --alias Qwen3.8-27B-GGUF
-          --spec-type draft-mtp --spec-draft-n-max 3
-        '';
-        capabilities = {
-          "in" = [ "text" "image" ];
-          out = [ "text" ];
-          tools = true;
-          context = 1000000;
-        };
-      };
-
-      # DavidAU's TURBO fine-tune of Qwen3.8 27B (Heretic-uncensored, coder
-      # tuned, shorter thinking). Q4_K_M because the card warns tool calling
-      # degrades below it. Native 262k context, no YaRN. The card recommends 2
-      # MTP draft tokens and temp <= 1 (higher temps hurt MTP acceptance);
-      # sampler defaults are its thinking-mode coding preset.
-      "Qwen3.8-27B-TURBO-Fable-Cold-Fusion-MTP-GGUF" = {
-        cmd = ''
-          ${llamaServer}
-          ${commonArgs}
-          --ctx-size 262144
-          --model ${qwen38TurboDir}/Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M.gguf
-          --mmproj ${qwen38TurboDir}/mmproj-F16.gguf
-          --alias Qwen3.8-27B-TURBO-Fable-Cold-Fusion-MTP-GGUF
-          --spec-type draft-mtp --spec-draft-n-max 2
-          --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0
-        '';
-        capabilities = {
-          "in" = [ "text" "image" ];
-          out = [ "text" ];
-          tools = true;
-          context = 262144;
-        };
-      };
-
-      "gufo/Qwen3.8-27B-DFlash2" = {
-        checkEndpoint = "/ready";
-        cmd = ''
-          ${gufo} serve
-          --host 127.0.0.1 --port ''${PORT} --sessions 1
-          llm
-          --model ${qwen38Dir}/Qwen3.8-27B-UD-Q4_K_XL.gguf
-          --mmproj ${qwen38Dir}/mmproj-BF16.gguf
-          --served-model-name gufo/Qwen3.8-27B-DFlash2
-          --context 262144
-          --think off
-          --temperature 0.8 --top-k 40 --top-p 0.95 --min-p 0.05
-          --speculative dflash2
-          --dflash-model ${qwen38DFlashDir}/Qwen3.8-27B-DFlash2-Q4_K_M.gguf
-          --draft-policy adaptive
-        '';
-        capabilities = {
-          "in" = [ "text" "image" ];
-          out = [ "text" ];
-          tools = true;
-          context = 262144;
-        };
-      };
-
-      "gufo/Qwen3.8-Flash-Next-MTP" = {
-        checkEndpoint = "/ready";
-        cmd = ''
-          ${gufo} serve
-          --host 127.0.0.1 --port ''${PORT} --sessions 1
-          llm
-          --model ${qwen38FlashNextDir}/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
-          --mmproj ${qwen38FlashNextDir}/mmproj-BF16.gguf
-          --served-model-name gufo/Qwen3.8-Flash-Next-MTP
-          --context 131072
-          --speculative mtp
-          --mtp-model ${qwen38FlashNextDir}/MTP/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf
-        '';
-        capabilities = {
-          "in" = [ "text" "image" ];
-          out = [ "text" ];
-          tools = true;
-          context = 131072;
-        };
-      };
-
-      "gufo/DeepSeek-V4-Flash-DSpark" = {
-        checkEndpoint = "/ready";
-        cmd = ''
-          ${gufo} serve
-          --host 127.0.0.1 --port ''${PORT} --sessions 1
-          llm
-          --model ${deepseekV4Dir}/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
-          --served-model-name gufo/DeepSeek-V4-Flash-DSpark
-          --context 262144
-          --speculative dspark
-          --dspark-model ${deepseekV4DSparkDir}/DeepSeek-V4-Flash-DSpark-support-0731.gguf
-        '';
-        capabilities = {
-          "in" = [ "text" ];
-          out = [ "text" ];
-          tools = true;
-          context = 262144;
-        };
-      };
-
-      "gufo/Qwen3-ASR-1.7B" = {
-        checkEndpoint = "/ready";
-        cmd = ''
-          ${gufo} serve
-          --host 127.0.0.1 --port ''${PORT}
-          --max-request-bytes 268435456
-          asr
-          --model ${qwen3AsrDir}
-          --context 1024
-          --served-model-name gufo/Qwen3-ASR-1.7B
-        '';
-        capabilities = {
-          "in" = [ "audio" ];
-          out = [ "text" ];
-          context = 1024;
-        };
-      };
-
-      "gufo/Qwen3-TTS-12Hz-1.7B-Base" = {
-        checkEndpoint = "/ready";
-        cmd = ''
-          ${gufo} serve
-          --host 127.0.0.1 --port ''${PORT}
-          --max-request-bytes 268435456
-          tts
-          --model ${qwen3TtsBaseDir}
-          --context 4096
-          --served-model-name gufo/Qwen3-TTS-12Hz-1.7B-Base
-        '';
-        capabilities = {
-          "in" = [ "text" "audio" ];
-          out = [ "audio" ];
-          context = 4096;
-        };
-      };
-
-      "gufo/Qwen3-TTS-12Hz-1.7B-CustomVoice" = {
-        checkEndpoint = "/ready";
-        cmd = ''
-          ${gufo} serve
-          --host 127.0.0.1 --port ''${PORT}
-          tts
-          --model ${qwen3TtsCustomVoiceDir}
-          --context 4096
-          --served-model-name gufo/Qwen3-TTS-12Hz-1.7B-CustomVoice
-        '';
-        capabilities = {
-          "in" = [ "text" ];
-          out = [ "audio" ];
-          context = 4096;
-        };
-      };
-
-      "gufo/Qwen3-TTS-12Hz-1.7B-VoiceDesign" = {
-        checkEndpoint = "/ready";
-        cmd = ''
-          ${gufo} serve
-          --host 127.0.0.1 --port ''${PORT}
-          tts
-          --model ${qwen3TtsVoiceDesignDir}
-          --context 4096
-          --served-model-name gufo/Qwen3-TTS-12Hz-1.7B-VoiceDesign
-        '';
-        capabilities = {
-          "in" = [ "text" ];
-          out = [ "audio" ];
-          context = 4096;
-        };
-      };
-
-      "gufo/Qwen-Image-2.1" = {
-        checkEndpoint = "/ready";
-        cmd = ''
-          ${gufo} serve
-          --host 127.0.0.1 --port ''${PORT}
-          --max-request-bytes 268435456
-          image
-          --model ${qwenImage21Dir}
-          --served-model-name gufo/Qwen-Image-2.1
-        '';
-        capabilities = {
-          "in" = [ "text" "image" ];
-          out = [ "image" ];
-          context = 16384;
-        };
-      };
-
-      # llama-swap does not have a native OpenAI video route yet. Keep this
-      # ID slash-free so /upstream/minimax-h3/v1/videos can select it.
-      "minimax-h3" = {
-        checkEndpoint = "/ready";
-        cmd = ''
-          ${gufo} serve
-          --host 127.0.0.1 --port ''${PORT} --sessions 1
-          video
-          --model ${minimaxH3Dir}
-          --root /var/lib/llama-swap/gufo-h3-jobs
-          --ttl 3600
-        '';
-        # llama-swap v249 cannot express "video" in capabilities.out yet.
-        metadata = {
-          input_modalities = [ "text" ];
-          output_modalities = [ "video" ];
-          context = 4096;
-        };
-      };
-
-      "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF" = {
-        cmd = ''
-          ${llamaServer}
-          ${commonArgs}
-          --ctx-size 1048576
-          --model ${nemotronDir}/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-UD-Q4_K_XL.gguf
-          --alias NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
-          --spec-type draft-mtp --spec-draft-n-max 3
-        '';
-        capabilities = {
-          "in" = [ "text" ];
-          out = [ "text" ];
-          tools = true;
-          context = 1048576;
-        };
-      };
-
-      "Gemma-4-26B-A4B-it-MTP-GGUF" = {
-        cmd = ''
-          ${llamaServer}
-          ${commonArgs}
-          --ctx-size 262144
-          --model ${gemmaDir}/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf
-          --mmproj ${gemmaDir}/mmproj-F16.gguf
-          --alias Gemma-4-26B-A4B-it-MTP-GGUF
-          --spec-type draft-mtp --spec-draft-n-max 3
-          --model-draft ${gemmaDir}/mtp-gemma-4-26B-A4B-it.gguf
-          --device-draft ROCm0 --n-gpu-layers-draft all
-          --cache-type-k-draft q4_0 --cache-type-v-draft q4_0
-        '';
-        capabilities = {
-          "in" = [ "text" "image" ];
-          out = [ "text" ];
-          tools = true;
-          context = 262144;
-        };
-      };
-
-      # FLUX.2 [dev] (32B flow transformer, non-commercial license) with
-      # Mistral Small 3.2 24B as its text encoder. gufo's image backend only
-      # serves Qwen Image, so this runs on stable-diffusion.cpp, which has
-      # OpenAI /v1/images routes. The official BFL repo is gated and bf16 is
-      # ~64 GB + ~48 GB encoder, so this uses the GGUFs sd.cpp's docs point
-      # to: city96's Q8_0 transformer, unsloth's Q8_0 Mistral, and Comfy-Org's
-      # ungated copy of the VAE. cfg-scale 1 because guidance is distilled;
-      # --guidance 4 is the model card's default. Steps are 28, not the
-      # card's 50: on Vulkan a 1024x1024 step takes ~32.7 s, so 50 steps took
-      # 1645 s, too close to the 1800 s LiteLLM timeout.
-      # Vulkan, not ROCm: sd.cpp's ROCm build (master-874) aborts on the first
-      # request when most of GTT is free ("model manager cannot make enough
-      # memory available ... available 0.00 MB device", then a GGML_ASSERT);
-      # --max-vram and --params-backend/--eager-load did not help.
-      # --vae-conv-direct cuts Vulkan's VAE decode from ~39 s to ~2 s (SDXL).
-      "FLUX.2-dev" = {
-        checkEndpoint = "/v1/models";
-        cmd = ''
-          ${sdServer}
-          --listen-ip 127.0.0.1 --listen-port ''${PORT}
-          --diffusion-model ${flux2Dir}/flux2-dev-Q8_0.gguf
-          --llm ${mistralSmall32Dir}/Mistral-Small-3.2-24B-Instruct-2506-Q8_0.gguf
-          --vae ${flux2VaeDir}/split_files/vae/flux2-vae.safetensors
-          --backend Vulkan0
-          --diffusion-fa --vae-conv-direct
-          --width 1024 --height 1024
-          --steps 28 --cfg-scale 1.0 --guidance 4.0
-          --sampling-method euler
-          --seed -1
-        '';
-        capabilities = {
-          "in" = [ "text" ];
-          out = [ "image" ];
-          context = 512;
-        };
-      };
-
-      # Open WebUI's RAG embedder. Not commonArgs: those chat flags (--parallel
-      # 1, 512-token ubatch, q8 KV) would truncate or serialize batched
-      # embedding requests. Non-causal pooling needs each input to fit in one
-      # ubatch, so ubatch equals the per-slot context (32768 / 4).
-      "Qwen3-Embedding-4B-GGUF" = {
-        cmd = ''
-          ${llamaServer}
-          --host 127.0.0.1 --port ''${PORT}
-          --device ROCm0 --n-gpu-layers all
-          --flash-attn on
-          --embedding --pooling last
-          --ctx-size 32768 --parallel 4
-          --batch-size 8192 --ubatch-size 8192
-          --threads 16 --threads-batch 16
-          --model ${qwen3EmbeddingDir}/Qwen3-Embedding-4B-Q8_0.gguf
-          --alias Qwen3-Embedding-4B-GGUF
-        '';
-        # llama-swap v249 cannot express "embedding" in capabilities.out yet.
-        metadata = {
-          input_modalities = [ "text" ];
-          output_modalities = [ "embedding" ];
-          context = 8192;
-          dimensions = 2560;
-        };
-      };
-
-    };
+    # Prometheus scrapes /upstream/<model>/metrics (./monitoring.nix). Without
+    # this, each scrape of an unloaded model would swap it in; a matching path
+    # now gets a 409 instead. Setting the list replaces llama-swap's default,
+    # so its static-asset pattern is restated first.
+    upstream.ignorePaths = [
+      ''.*\.(js|json|css|png|gif|jpg|jpeg|ico|txt)$''
+      "^/metrics$"
+    ];
 
     routing.router = {
       use = "matrix";
@@ -448,6 +468,9 @@ let
   };
 in
 {
+  # Shared with ./monitoring.nix so its scrape list follows the model list.
+  _module.args.llamaSwapMetricsModels = metricsModels;
+
   boot.kernelPackages = pkgs.linuxPackages_latest;
   boot.kernelParams = [ "amdgpu.gttsize=117760" ];
 
@@ -461,8 +484,7 @@ in
 
     lemonade = {
       user = "mani";
-      # Lemonade is not fronted by the remote LiteLLM container. Keep it
-      # reachable directly for NPU/TTS diagnostics and recovery.
+      # Keep Lemonade reachable directly for NPU/TTS diagnostics and recovery.
       host = "0.0.0.0";
       # Lemonade 403s browser requests from non-loopback origins unless they
       # are listed: the Caddy name (./caddy.nix) and the direct LAN port.

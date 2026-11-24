@@ -2,8 +2,7 @@
 
 Halo runs Open WebUI as a native NixOS service, defined in
 [`hosts/halo/openwebui.nix`](../hosts/halo/openwebui.nix). It connects
-**directly to llama-swap** on loopback (`http://127.0.0.1:9292/v1`), not to
-LiteLLM. It is reachable at `http://10.1.3.246:8080` on the LAN and at
+**directly to llama-swap** on loopback (`http://127.0.0.1:9292/v1`). It is reachable at `http://10.1.3.246:8080` on the LAN and at
 `http://halo:8080` over Tailscale.
 
 ## What is wired where

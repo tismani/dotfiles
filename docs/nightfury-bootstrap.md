@@ -108,13 +108,11 @@ account or purchase prompt in the App Store and rerun the same command.
    mode `0600`; those keys are not in this repository.
 3. Open Tailscale and sign in. If using NetBird, complete its service setup and
    enrollment too; installing its Homebrew formula does not enroll this Mac.
-4. OMP's Halo provider uses `http://halo:4000/v1` and reads its Bearer token from
-   `LITELLM_API_KEY`. Set it to the master key generated on Halo. Ensure `halo`
-   resolves to a reachable LAN or Tailscale address; use Halo's LAN IP in
-   `home/mani/programs/omp.nix` if needed. Follow
-   [Halo LLM gateway setup](halo-llm.md) for manual Lemonade download and Nix
-   registration steps. OMP uses `openai-models-list` discovery; its list stays
-   empty until models are registered in Nix and Halo is rebuilt.
+4. OMP's Halo provider uses `https://llm.halo.tismani.com/v1` (Caddy on Halo,
+   reached over Tailscale), so Tailscale must be up. llama-swap needs no
+   key, hence `auth: none`. OMP uses
+   `openai-models-list` discovery; see [Halo LLM gateway setup](halo-llm.md)
+   for the registered models.
 5. Terminal is configured to launch Fish, and its default/startup profiles use
    Kitty's shared terminal font size (currently 13 pt). Quit Terminal before a
    rebuild so its cached preferences do not overwrite the update, then reopen it.

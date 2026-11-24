@@ -10,6 +10,7 @@
       ./desktop.nix
       ./power.nix
       ./caddy.nix
+      ./monitoring.nix
     ];
 
   sops.defaultSopsFile = ../../secrets/halo.yaml;

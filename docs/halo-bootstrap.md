@@ -321,15 +321,11 @@ Restore disk-only private keys separately; the dotfiles supply only public keys.
 ## 9. Set up models when needed
 
 ```sh
-systemctl status llama-swap litellm --no-pager
-sudo sed -n 's/^LITELLM_MASTER_KEY=//p' /var/lib/litellm/environment
+systemctl status llama-swap --no-pager
 ```
 
-LiteLLM serves the primary `http://halo:4000/v1` endpoint using a persistent
-master key generated on first activation. Retrieve it locally with
-`sudo sed -n 's/^LITELLM_MASTER_KEY=//p' /var/lib/litellm/environment`.
-llama-swap remains directly available at `http://halo:9292/v1` as a fallback.
-Both ports are open on all interfaces, including the local network and overlay
+llama-swap serves the OpenAI-compatible API at `http://halo:9292/v1`, without
+authentication. Its port is open on all interfaces, including the local network and overlay
 networks. The configured Qwen3.6, Qwen3.8, Nemotron, and Gemma GGUF models load
 on demand; llama-swap keeps only one of them resident at a time.
 
