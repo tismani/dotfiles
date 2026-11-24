@@ -62,7 +62,7 @@ existing Homebrew installation under management.
 ## 4. Get this repository
 
 ```sh
-git clone https://forgejo.internal.tismani.com/mani/dotfiles.git ~/dotfiles
+git clone https://github.com/tismani/dotfiles.git ~/dotfiles
 cd ~/dotfiles
 git status --short
 ```

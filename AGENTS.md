@@ -9,7 +9,7 @@ Single flake, three hosts:
 - `halo` — **AI-only host**: NixOS (`x86_64-linux`), Framework Desktop, AMD AI Max 300 (Strix Halo). Runs all local LLM inference.
 - `ajwa` — NixOS (`x86_64-linux`), Intel, GNOME, LAN `192.168.100.171`. Never sleeps (`hosts/ajwa/power.nix`).
 
-User `mani`, checkout `~/dotfiles`, remote `https://forgejo.internal.tismani.com/mani/dotfiles.git`.
+User `mani`, checkout `~/dotfiles`, remote `https://github.com/tismani/dotfiles.git`.
 
 ## Layout
 

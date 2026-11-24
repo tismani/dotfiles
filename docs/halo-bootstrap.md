@@ -69,7 +69,7 @@ to your account:
 
 ```sh
 nix-shell -p git
-git clone https://forgejo.internal.tismani.com/mani/dotfiles.git "$HOME/dotfiles"
+git clone https://github.com/tismani/dotfiles.git "$HOME/dotfiles"
 cd "$HOME/dotfiles"
 git status --short
 ```
